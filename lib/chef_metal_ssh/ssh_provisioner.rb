@@ -1,5 +1,3 @@
-require 'json'
-require 'chef/mixin/shell_out'
 require 'chef_metal/provisioner'
 require 'chef_metal/version'
 require 'chef_metal/machine/basic_machine'
@@ -8,13 +6,8 @@ require 'chef_metal/convergence_strategy/install_cached'
 require 'chef_metal/transport/ssh'
 
 module ChefMetalSsh
-  # Provisions machines in ssh.
+  # Provisions machines with ssh.
   class SshProvisioner < ChefMetal::Provisioner
-
-    include Chef::Mixin::ShellOut
-    #def initialize(ssh_connect_options={})
-    #    @ssh_connect_options = ssh_connect_options
-    #end
 
     def initialize(target_host=nil)
       @target_host = target_host
@@ -38,11 +31,10 @@ module ChefMetalSsh
     #        It is a hash with this format:
     #
     #           -- provisioner_url: ssh:<ssh_path>
-    #           -- template: template name
-    #           -- template_options: additional arguments for templates
-    #           -- backingstore: backing storage (lvm, thinpools, btrfs etc)
-    #           -- config_file: <path> path to ssh  file a la https://wiki.archlinux.org/index.php/Linux_Containers#Configuration_file
-    #           -- extra_config: { 'key' => 'value', ... } a set of ssh config key/value pairs to individually set.  Merges with, and overrides any values in config_file.
+    #           -- target_ip: the IP address of the target machine - IP or FQDN is required
+    #           -- target_fqdn: The Resolvable name of the target machine - IP or FQDN is required
+    #           -- ssh_user: the user to ssh as
+    #           -- ssh_config: options to pass the ssh command. available options are here - https://github.com/net-ssh/net-ssh/blob/master/lib/net/ssh.rb#L61
     #
     #        node['normal']['provisioner_output'] will be populated with information
     #        about the created machine.  For ssh, it is a hash with this
