@@ -94,11 +94,25 @@ module ChefMetalSsh
     end
 
     def delete_machine(action_handler, node)
-      true
+      convergence_strategy_for(node).delete_chef_objects(action_handler, node)
     end
 
     def stop_machine(action_handler, node)
+      # What to do What to do. 
+      # On one level there's really only one thing to do here,
+      # shellout and halt, or shutdown -h now, 
+      # maybe provide abitily to pass some shutdown options
+      # But be vewwy vewwy careful, you better have console,
+      # or be close to your datacenter
       true
+    end
+
+    def restart_machine(action_handler, node)
+      # Full Restart, POST BIOS and all
+    end
+
+    def reload_machine(action_handler, node)
+      # Use `kexec` here to skip POST and BIOS and all that noise.
     end
 
     # Not meant to be part of public interface
