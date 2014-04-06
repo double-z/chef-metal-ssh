@@ -6,7 +6,7 @@ TODO: Write a gem description
 
 Add this line to your application's Gemfile:
 
-    gem 'chef_metal_ssh'
+    gem 'chef-metal-ssh'
 
 And then execute:
 
@@ -14,7 +14,7 @@ And then execute:
 
 Or install it yourself as:
 
-    $ gem install chef_metal_ssh
+    $ gem install chef-metal-ssh
 
 ## Usage
 
@@ -34,7 +34,7 @@ Or install it yourself as:
 
 To test it out, clone the repo:
 
-`git clone https://github.com/double-z/chef_metal_ssh.git`
+`git clone https://github.com/double-z/chef-metal-ssh.git`
 
 in the root there is a Vagrantfile with 3 nodes, 1 master and 2 targets. Run:
 
@@ -73,7 +73,7 @@ party on wayne.
 
 ## Contributing
 
-1. Fork it ( http://github.com/double-z/chef_metal_ssh/fork )
+1. Fork it ( http://github.com/double-z/chef-metal-ssh/fork )
 2. Create your feature branch (`git checkout -b my-new-feature`)
 3. Commit your changes (`git commit -am 'Add some feature'`)
 4. Push to the branch (`git push origin my-new-feature`)
