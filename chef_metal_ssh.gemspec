@@ -10,7 +10,7 @@ Gem::Specification.new do |s|
   s.author        = "Zack Zondlo"
   s.email         = "zackzondlo@gmail.com"
   s.extra_rdoc_files = ['README.md', 'LICENSE.txt' ]
-  s.summary = 'Provisioner for converging servers using ssh ssh in Chef Metal.'
+  s.summary = 'Provisioner for converging servers using ssh in Chef Metal.'
   s.description = s.summary
   s.homepage = 'https://github.com/double-z/chef-metal-ssh'
 

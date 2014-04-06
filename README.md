@@ -1,3 +1,5 @@
+[![Gem Version](https://badge.fury.io/rb/chef-metal-ssh.svg)](http://badge.fury.io/rb/chef-metal-ssh)
+
 # ChefMetalSsh
 
 TODO: Write a gem description
