@@ -38,23 +38,23 @@ To test it out, clone the repo:
 
 `git clone https://github.com/double-z/chef-metal-ssh.git`
 
-in the root there is a Vagrantfile with 3 nodes, 1 master and 2 targets. Run:
+in the root there is a Vagrantfile with 3 nodes, 1 master and 2 targets. 
 
-first run:
+FYI, nothing will get installed on your local machine in this process. 
 
-`rake build`
-
-from the repo root to build the gem in the repo root `./pkg/` directory. then run:
+Run:
 
 `vagrant up`
 
-which will bring up all 3 nodes. FYI, nothing will get installed on your local machine in this proces. So then ssh to the master:
+which will bring up all 3 nodes. 
+
+So then ssh to the master:
 
 `vagrant ssh master`
 
 the repo test directory has a test cookbook and `run_zero` script. its located at `/vagrant/test`
 
-cd into it:
+cd into the test directory:
 
 `cd /vagrant/test`
 
