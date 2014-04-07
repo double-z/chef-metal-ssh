@@ -9,11 +9,8 @@ module ChefMetalSsh
   # Provisions machines with ssh.
   class SshProvisioner < ChefMetal::Provisioner
 
-    def initialize(target_host=nil)
-      @target_host = target_host
+    def initialize()
     end
-
-    attr_reader :target_host
 
     # Acquire a machine, generally by provisioning it.  Returns a Machine
     # object pointing at the machine, allowing useful actions like setup,
@@ -53,13 +50,10 @@ module ChefMetalSsh
       Chef::Log.debug("acquire_machine - provisioner_options.inspect: #{provisioner_options.inspect}")
       Chef::Log.debug("======================================>")
 
-      if @target_host.nil?
-        target_host  = get_target_connection_method(node)
-        @target_host = target_host
-      end
+      @target_host = get_target_connection_method(node)
 
       Chef::Log.debug("======================================>")
-      Chef::Log.debug("acquire_machine - target_host: #{target_host}")
+      Chef::Log.debug("acquire_machine - target_host: #{@target_host}")
       Chef::Log.debug("======================================>")
 
       # Set up Provisioner Output
@@ -81,13 +75,10 @@ module ChefMetalSsh
 
     # Connect to machine without acquiring it
     def connect_to_machine(node)
-      if @target_host.nil?
-        target_host  = get_target_connection_method(node)
-        @target_host = target_host
-      end
+      @target_host = get_target_connection_method(node)
 
       Chef::Log.debug("======================================>")
-      Chef::Log.debug("connect_to_machine - target_host: #{target_host}")
+      Chef::Log.debug("connect_to_machine - target_host: #{@target_host}")
       Chef::Log.debug("======================================>")
 
       machine_for(node)
@@ -98,9 +89,9 @@ module ChefMetalSsh
     end
 
     def stop_machine(action_handler, node)
-      # What to do What to do. 
+      # What to do What to do.
       # On one level there's really only one thing to do here,
-      # shellout and halt, or shutdown -h now, 
+      # shellout and halt, or shutdown -h now,
       # maybe provide abitily to pass some shutdown options
       # But be vewwy vewwy careful, you better have console,
       # or be close to your datacenter
@@ -167,13 +158,8 @@ module ChefMetalSsh
 
       provisioner_options = node['normal']['provisioner_options']
 
-      ##
-      # Ssh Target
-      target_host = ''
-      target_host = @target_host
-
       Chef::Log.debug("======================================>")
-      Chef::Log.debug("create_ssh_transport - target_host: #{target_host}")
+      Chef::Log.debug("create_ssh_transport - target_host: #{@target_host}")
       Chef::Log.debug("======================================>")
 
       ##
@@ -225,7 +211,7 @@ module ChefMetalSsh
       Chef::Log.debug("create_ssh_transport - options: #{options.inspect}")
       Chef::Log.debug("======================================>")
 
-      ChefMetal::Transport::SSH.new(target_host, username, ssh_options, options)
+      ChefMetal::Transport::SSH.new(@target_host, username, ssh_options, options)
     end
 
   end
