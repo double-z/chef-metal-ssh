@@ -174,8 +174,6 @@ module ChefMetalSsh
 
     # Setup Ssh
     def create_ssh_transport(node)
-      # TODO - verify target_host resolves
-      # Verify Valid IP
 
       provisioner_options     = node['normal']['provisioner_options']
       provisioner_ssh_options = provisioner_options['ssh_options']
