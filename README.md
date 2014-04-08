@@ -26,8 +26,8 @@ Or install it yourself as:
 		  provisioner ChefMetalSsh::SshProvisioner.new
 		  provisioner_options 'target_ip' => '192.168.33.21',
 		                      'ssh_user' => 'vagrant',
-		                      'ssh_connect_options' => {
-		                        'ssh_pass' => 'vagrant'
+		                      'ssh_options' => {
+		                        'password' => 'vagrant'
 		                      }
 		  recipe 'ssh_test::remote1'
 		  notifies :create, 'machine[two]'
@@ -60,7 +60,11 @@ cd into the test directory:
 
 then run:
 
-`bash run_zero install`
+`bash run_zero install_local` if you built the gem locally first using `rake build`
+
+otherwise:
+
+`bash run_zero install_rubygems`
 
 this will install the prereqs. then run:
 
