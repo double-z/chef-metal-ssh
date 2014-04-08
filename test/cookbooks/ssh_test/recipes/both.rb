@@ -6,8 +6,8 @@ with_chef_local_server :chef_repo_path => "/vagrant/test"
 ##
 # Machine One
 machine "one" do
-  action :converge
-  #action :create
+  #action :converge
+  action :create
 #  converge true
   provisioner ChefMetalSsh::SshProvisioner.new
   provisioner_options 'target_ip' => '192.168.33.21',
@@ -16,8 +16,8 @@ machine "one" do
                         'password' => 'vagrant'
                       }
   recipe 'ssh_test::remote1'
-#  notifies :create, 'machine[two]'
-  notifies :converge, 'machine[two]'
+  notifies :create, 'machine[two]'
+  #notifies :converge, 'machine[two]'
   notifies :run, 'execute[run_touch1]'
 end
 
