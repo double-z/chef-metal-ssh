@@ -172,6 +172,21 @@ module ChefMetalSsh
       end
     end
 
+    def symbolize_keys(hash)
+      hash.inject({}){|result, (key, value)|
+        new_key = case key
+        when String then key.to_sym
+        else key
+        end
+        new_value = case value
+        when Hash then symbolize_keys(value)
+        else value
+        end
+        result[new_key] = new_value
+        result
+      }
+    end
+
     # Setup Ssh
     def create_ssh_transport(node)
 
@@ -201,7 +216,7 @@ module ChefMetalSsh
       # Ssh Key
       ssh_key = false
       ssh_key = provisioner_ssh_options['host_key'] if provisioner_ssh_options['host_key']
-      
+
       Chef::Log.debug("======================================>")
       if ssh_pass
         Chef::Log.debug("create_ssh_transport - ssh_pass: #{ssh_pass}")
@@ -212,7 +227,7 @@ module ChefMetalSsh
       end
       Chef::Log.debug("======================================>")
 
-      raise "no ssh_pass or ssh_key given" unless ( ssh_pass || ssh_key ) 
+      raise "no ssh_pass or ssh_key given" unless ( ssh_pass || ssh_key )
       ##
       # Ssh Main Options
       valid_ssh_options = [
@@ -226,21 +241,25 @@ module ChefMetalSsh
         :max_win_size, :send_env, :use_agent
       ]
 
+      ##
+      # Ssh Main Options
+      ssh_options = symbolize_keys(provisioner_ssh_options)
+
       # Validate Ssh Options
-      provisioner_ssh_options.each { |k,v| raise 'Invalid Shh Option' unless valid_ssh_options.include?(k.to_sym) }
+      ssh_options.each { |k,v| raise 'Invalid Shh Option' unless valid_ssh_options.include?(k) }
 
       ##
       # Ssh Main Options
-      ssh_options = {}
-      ssh_options = {
-        # TODO create a user known hosts file
-        #          :user_known_hosts_file => provisioner_options['ssh_connect_options']['UserKnownHostsFile'],
-        #          :paranoid => true,
-        # :auth_methods => [ 'publickey' ],
-        :keys_only => false,
-        :host_key => ssh_key,
-        :password => ssh_pass
-      }
+      # ssh_options = symbolize_keys(provisioner_ssh_options)
+      # ssh_options = {
+      #   # TODO create a user known hosts file
+      #   #          :user_known_hosts_file => provisioner_options['ssh_connect_options']['UserKnownHostsFile'],
+      #   #          :paranoid => true,
+      #   # :auth_methods => [ 'publickey' ],
+      #   :keys_only => false,
+      #   :host_key => ssh_key,
+      #   :password => ssh_pass
+      # }
 
       Chef::Log.debug("======================================>")
       Chef::Log.debug("create_ssh_transport - ssh_options: #{ssh_options.inspect}")
