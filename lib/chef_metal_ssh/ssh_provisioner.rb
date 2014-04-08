@@ -270,13 +270,13 @@ module ChefMetalSsh
         ssh = Net::SSH.start(@target_host, username, ssh_options)
         ssh.close
         Chef::Log.debug("======================================>")
-        Chef::Log.debug("ABLE to Connect to #{@hostname} using #{@username} and #{@ssh_options}")
+        Chef::Log.debug("ABLE to Connect to #{@target_host} using #{username} and #{ssh_options.inspect}")
         Chef::Log.debug("======================================>")
       rescue
         Chef::Log.debug("======================================>")
-        Chef::Log.debug("UNABLE to Connect to #{@hostname} using #{@username} and #{@ssh_options}")
+        Chef::Log.debug("UNABLE to Connect to #{@target_host} using #{username} and #{ssh_options.inspect}")
         Chef::Log.debug("======================================>")
-        raise "UNABLE to Connect to #{@hostname} using #{@username} and #{@ssh_options}"
+        raise "UNABLE to Connect to #{@target_host} using #{username} and #{ssh_options.inspect}"
       end
 
       ##

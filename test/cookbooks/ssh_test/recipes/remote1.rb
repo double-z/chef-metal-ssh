@@ -10,6 +10,7 @@ sleep 9
 
 package 'vim-nox'
 package 'nmap'
+package 'build-essential'
 
 execute 'run_touch1_remote' do
   command "echo #{Time.now} >> /tmp/iran_remote1"
