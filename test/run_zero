@@ -2,11 +2,17 @@
 
 case "$1" in
 
-install)  echo "Install Gems"
+install_local)  echo "Install Gems"
+    sudo apt-get update
+    sudo apt-get install curl vim-nox -y
+#    curl -L https://www.opscode.com/chef/install.sh | sudo bash
+    sudo chef-client -z -o ssh_test::install_metal_local
+    ;;
+install_rubygems)  echo "Install Gems"
     sudo apt-get update
     sudo apt-get install curl vim-nox -y
     curl -L https://www.opscode.com/chef/install.sh | sudo bash
-    sudo chef-client -z -o ssh_test::install_metal
+    sudo chef-client -z -o ssh_test::install_metal_rubygems
     ;;
 both)  echo  "Both Machines"
     sudo chef-client -z -o ssh_test::both

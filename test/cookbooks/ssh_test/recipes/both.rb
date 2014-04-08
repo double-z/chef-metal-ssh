@@ -11,8 +11,8 @@ machine "one" do
   provisioner ChefMetalSsh::SshProvisioner.new
   provisioner_options 'target_ip' => '192.168.33.21',
                       'ssh_user' => 'vagrant',
-                      'ssh_connect_options' => {
-                        'ssh_pass' => 'vagrant'
+                      'ssh_options' => {
+                        'password' => 'vagrant'
                       }
   recipe 'ssh_test::remote1'
   notifies :create, 'machine[two]'
@@ -33,8 +33,8 @@ machine "two" do
   provisioner ChefMetalSsh::SshProvisioner.new
   provisioner_options 'target_ip' => '192.168.33.22',
                       'ssh_user' => 'vagrant',
-                      'ssh_connect_options' => {
-                        'ssh_pass' => 'vagrant'
+                      'ssh_options' => {
+                        'password' => 'vagrant'
                       }
   recipe 'ssh_test::remote2'
   notifies :run, 'execute[run_touch2]'

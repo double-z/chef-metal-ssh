@@ -1,3 +1,4 @@
+require 'resolv'
 require 'chef_metal/provisioner'
 require 'chef_metal/version'
 require 'chef_metal/machine/basic_machine'
@@ -27,17 +28,17 @@ module ChefMetalSsh
     #        node will have node['normal']['provisioner_options'] in it with any options.
     #        It is a hash with this format:
     #
-    #           -- provisioner_url: ssh:<ssh_path>
+    #           -- provisioner_url: ssh:<@target_host>
     #           -- target_ip: the IP address of the target machine - IP or FQDN is required
     #           -- target_fqdn: The Resolvable name of the target machine - IP or FQDN is required
     #           -- ssh_user: the user to ssh as
-    #           -- ssh_config: options to pass the ssh command. available options are here - https://github.com/net-ssh/net-ssh/blob/master/lib/net/ssh.rb#L61
+    #           -- ssh_options: options to pass the ssh command. available options are here - https://github.com/net-ssh/net-ssh/blob/master/lib/net/ssh.rb#L61
     #
     #        node['normal']['provisioner_output'] will be populated with information
     #        about the created machine.  For ssh, it is a hash with this
     #        format:
     #
-    #           -- provisioner_url: ssh:<ssh_path>
+    #           -- provisioner_url: ssh:<@target_host>
     #           -- name: container name
     #
     def acquire_machine(action_handler, node)
@@ -59,7 +60,7 @@ module ChefMetalSsh
       # Set up Provisioner Output
       # TODO - make url the chef server url path? maybe disk path if zero?
       provisioner_output = node['normal']['provisioner_output'] || {
-        'provisioner_url' =>   "ssh:#{target_host}",
+        'provisioner_url' =>   "ssh:#{@target_host}",
         'name' => node['name']
       }
 
@@ -127,8 +128,28 @@ module ChefMetalSsh
       if @target_host
         remote_host = @target_host
       elsif target_ip
+        raise 'Invalid IP' unless ( target_ip =~ Resolv::IPv4::Regex ||
+                                    target_ip =~ Resolv::IPv6::Regex )
         remote_host = target_ip
       elsif target_fqdn
+        rh = Resolv::Hosts.new
+        rd = Resolv.new
+
+        begin
+          rh.getaddress(target_fqdn)
+          in_hosts_file = true
+        rescue
+          in_hosts_file = false
+        end
+
+        begin
+          rd.getaddress(target_fqdn)
+          in_dns = true
+        rescue
+          in_dns = false
+        end
+
+        raise 'Unresolvable Hostname' unless ( in_hosts_file || in_dns )
         remote_host = target_fqdn
       else
         raise "aint got no target yo, that dog dont hunt"
@@ -156,7 +177,8 @@ module ChefMetalSsh
       # TODO - verify target_host resolves
       # Verify Valid IP
 
-      provisioner_options = node['normal']['provisioner_options']
+      provisioner_options     = node['normal']['provisioner_options']
+      provisioner_ssh_options = provisioner_options['ssh_options']
 
       Chef::Log.debug("======================================>")
       Chef::Log.debug("create_ssh_transport - target_host: #{@target_host}")
@@ -164,8 +186,8 @@ module ChefMetalSsh
 
       ##
       # Ssh Username
-      username    = ''
-      username    = provisioner_options['ssh_user'] || 'vagrant'
+      username = ''
+      username = provisioner_options['ssh_user'] || 'vagrant'
 
       Chef::Log.debug("======================================>")
       Chef::Log.debug("create_ssh_transport - username: #{username}")
@@ -173,12 +195,41 @@ module ChefMetalSsh
 
       ##
       # Ssh Password
-      ssh_pass = ''
-      ssh_pass = provisioner_options['ssh_connect_options']['ssh_pass']
+      ssh_pass = false
+      ssh_pass = provisioner_ssh_options['password'] if provisioner_ssh_options['password']
+      # ssh_pass = ssh_options[:password] if ssh_options[:password]
 
+      ##
+      # Ssh Key
+      ssh_key = false
+      ssh_key = provisioner_ssh_options['host_key'] if provisioner_ssh_options['host_key']
+      
       Chef::Log.debug("======================================>")
-      Chef::Log.debug("create_ssh_transport - ssh_pass: #{ssh_pass}")
+      if ssh_pass
+        Chef::Log.debug("create_ssh_transport - ssh_pass: #{ssh_pass}")
+      elsif ssh_key
+        Chef::Log.debug("create_ssh_transport - ssh_key: #{ssh_key}")
+      else
+        Chef::Log.debug("create_ssh_transport - no ssh_pass or ssh_key given")
+      end
       Chef::Log.debug("======================================>")
+
+      raise "no ssh_pass or ssh_key given" unless ( ssh_pass || ssh_key ) 
+      ##
+      # Ssh Main Options
+      valid_ssh_options = [
+        :auth_methods, :bind_address, :compression, :compression_level, :config,
+        :encryption, :forward_agent, :hmac, :host_key,
+        :keepalive, :keepalive_interval, :kex, :keys, :key_data,
+        :languages, :logger, :paranoid, :password, :port, :proxy,
+        :rekey_blocks_limit,:rekey_limit, :rekey_packet_limit, :timeout, :verbose,
+        :global_known_hosts_file, :user_known_hosts_file, :host_key_alias,
+        :host_name, :user, :properties, :passphrase, :keys_only, :max_pkt_size,
+        :max_win_size, :send_env, :use_agent
+      ]
+
+      # Validate Ssh Options
+      provisioner_ssh_options.each { |k,v| raise 'Invalid Shh Option' unless valid_ssh_options.include?(k.to_sym) }
 
       ##
       # Ssh Main Options
@@ -189,6 +240,7 @@ module ChefMetalSsh
         #          :paranoid => true,
         # :auth_methods => [ 'publickey' ],
         :keys_only => false,
+        :host_key => ssh_key,
         :password => ssh_pass
       }
 
@@ -196,6 +248,19 @@ module ChefMetalSsh
       Chef::Log.debug("create_ssh_transport - ssh_options: #{ssh_options.inspect}")
       Chef::Log.debug("======================================>")
 
+      # Make Sure We Can Connect
+      begin
+        ssh = Net::SSH.start(@target_host, username, ssh_options)
+        ssh.close
+        Chef::Log.debug("======================================>")
+        Chef::Log.debug("ABLE to Connect to #{@hostname} using #{@username} and #{@ssh_options}")
+        Chef::Log.debug("======================================>")
+      rescue
+        Chef::Log.debug("======================================>")
+        Chef::Log.debug("UNABLE to Connect to #{@hostname} using #{@username} and #{@ssh_options}")
+        Chef::Log.debug("======================================>")
+        raise "UNABLE to Connect to #{@hostname} using #{@username} and #{@ssh_options}"
+      end
 
       ##
       # Ssh Additional Options
