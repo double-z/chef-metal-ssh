@@ -10,7 +10,37 @@ module ChefMetalSsh
   # Provisions machines with ssh.
   class SshProvisioner < ChefMetal::Provisioner
 
-    def initialize()
+    # ## Parameters
+    # cluster_path - path to the directory containing the vagrant files, which
+    #                should have been created with the vagrant_cluster resource.
+    def initialize(target_host=nil)
+      @target_host = target_host
+    end
+
+    attr_reader :target_host
+
+    # Inflate a provisioner from node information; we don't want to force the
+    # driver to figure out what the provisioner really needs, since it varies
+    # from provisioner to provisioner.
+    #
+    # ## Parameters
+    # node - node to inflate the provisioner for
+    #
+    # returns a VagrantProvisioner
+    def self.inflate(node)
+    # /opt/chef/embedded/bin/metal -z -c .chef/knife.rb execute one sudo chef-client -l debug
+    #       machine = new_resource.provisioner.acquire_machine(self, node_json)
+    # begin
+    #   machine.setup_convergence(self, new_resource)
+    #   # If the chef server lives on localhost, tunnel the port through to the guest
+    #     chef_server_url = machine_resource.chef_server[:chef_server_url]
+    #     chef_server_url = machine.make_url_available_to_remote(chef_server_url)
+    #   node_url = node['normal']['provisioner_output']['provisioner_url']
+    #   local_url = 'http://127.0.0.1:5900'
+    #   target_host = node_url.split(':', 2)[1]
+    #   transport = transport_for(node)
+    #   transport.make_url_available_to_remote(local_url)
+    #   self.new(target_host)
     end
 
     # Acquire a machine, generally by provisioning it.  Returns a Machine
@@ -214,20 +244,30 @@ module ChefMetalSsh
 
       ##
       # Ssh Key
-      ssh_key = false
-      ssh_key = provisioner_ssh_options['host_key'] if provisioner_ssh_options['host_key']
+      ssh_keys = []
+      if provisioner_ssh_options['keys'] 
+        if provisioner_ssh_options['keys'].kind_of?(Array)
+          provisioner_ssh_options['keys'].each do |key|
+            ssh_keys << key
+          end
+        elsif provisioner_ssh_options['keys'].kind_of?(String)
+          ssh_keys << provisioner_ssh_options['keys']
+        else
+          ssh_keys = false
+        end
+      end
 
       Chef::Log.debug("======================================>")
       if ssh_pass
         Chef::Log.debug("create_ssh_transport - ssh_pass: #{ssh_pass}")
-      elsif ssh_key
-        Chef::Log.debug("create_ssh_transport - ssh_key: #{ssh_key}")
+      elsif ssh_keys
+        Chef::Log.debug("create_ssh_transport - ssh_key: #{ssh_keys.inpsect}")
       else
         Chef::Log.debug("create_ssh_transport - no ssh_pass or ssh_key given")
       end
       Chef::Log.debug("======================================>")
 
-      raise "no ssh_pass or ssh_key given" unless ( ssh_pass || ssh_key )
+      raise "no ssh_pass or ssh_key given" unless ( ssh_pass || ssh_keys )
       ##
       # Ssh Main Options
       valid_ssh_options = [

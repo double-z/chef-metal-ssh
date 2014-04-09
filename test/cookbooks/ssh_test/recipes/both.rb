@@ -8,7 +8,7 @@ with_chef_local_server :chef_repo_path => "/vagrant/test"
 machine "one" do
   #action :converge
   action :create
-#  converge true
+  converge true
   provisioner ChefMetalSsh::SshProvisioner.new
   provisioner_options 'target_ip' => '192.168.33.21',
                       'ssh_user' => 'vagrant',
@@ -29,9 +29,9 @@ end
 ##
 # Machine Two
 machine "two" do
-  # action :create
+  #action :create
   action :nothing
-#  converge true
+  converge true
   provisioner ChefMetalSsh::SshProvisioner.new
   provisioner_options 'target_ip' => '192.168.33.22',
                       'ssh_user' => 'vagrant',
