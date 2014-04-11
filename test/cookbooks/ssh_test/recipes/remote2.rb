@@ -6,7 +6,7 @@ execute 'apt-get-update' do
 end.run_action(:run)
 
 # use sleep with 'watch netstat -tulpn' on remote to verify zero forwarding
-sleep 9
+# sleep 9
 package 'vim-nox'
 package 'nmap'
 
