@@ -28,19 +28,19 @@ module ChefMetalSsh
     #
     # returns a VagrantProvisioner
     def self.inflate(node)
-      # /opt/chef/embedded/bin/metal -z -c .chef/knife.rb execute one sudo chef-client -l debug
-      #       machine = new_resource.provisioner.acquire_machine(self, node_json)
-      # begin
-      #   machine.setup_convergence(self, new_resource)
-      #   # If the chef server lives on localhost, tunnel the port through to the guest
-      #     chef_server_url = machine_resource.chef_server[:chef_server_url]
-      #     chef_server_url = machine.make_url_available_to_remote(chef_server_url)
-      #   node_url = node['normal']['provisioner_output']['provisioner_url']
-      #   local_url = 'http://127.0.0.1:5900'
-      #   target_host = node_url.split(':', 2)[1]
-      #   transport = transport_for(node)
-      #   transport.make_url_available_to_remote(local_url)
-      #   self.new(target_host)
+    # /opt/chef/embedded/bin/metal -z -c .chef/knife.rb execute one sudo chef-client -l debug
+    #       machine = new_resource.provisioner.acquire_machine(self, node_json)
+    # begin
+    #   machine.setup_convergence(self, new_resource)
+    #   # If the chef server lives on localhost, tunnel the port through to the guest
+    #     chef_server_url = machine_resource.chef_server[:chef_server_url]
+    #     chef_server_url = machine.make_url_available_to_remote(chef_server_url)
+    #   node_url = node['normal']['provisioner_output']['provisioner_url']
+    #   local_url = 'http://127.0.0.1:5900'
+    #   target_host = node_url.split(':', 2)[1]
+    #   transport = transport_for(node)
+    #   transport.make_url_available_to_remote(local_url)
+    #   self.new(target_host)
     end
 
     # Acquire a machine, generally by provisioning it.  Returns a Machine
@@ -83,13 +83,9 @@ module ChefMetalSsh
 
       @target_host = get_target_connection_method(node)
 
-      target_options = node['normal']['target_options']
-
       Chef::Log.debug("======================================>")
-      Chef::Log.debug("acquire_machine - target_options: #{@target_options.inspect}")
+      Chef::Log.debug("acquire_machine - target_host: #{@target_host}")
       Chef::Log.debug("======================================>")
-
-      use_registered_target?(target_options)
 
       # Set up Provisioner Output
       # TODO - make url the chef server url path? maybe disk path if zero?
@@ -249,7 +245,7 @@ module ChefMetalSsh
       ##
       # Ssh Key
       ssh_keys = []
-      if provisioner_ssh_options['keys']
+      if provisioner_ssh_options['keys'] 
         if provisioner_ssh_options['keys'].kind_of?(Array)
           provisioner_ssh_options['keys'].each do |key|
             ssh_keys << key
@@ -341,36 +337,4 @@ module ChefMetalSsh
     end
 
   end
-
-  def get_registered_target
-    registered_targets
-    target_options_match_registered?(registered_targets, target_options)
-  end
-  
-  def registered_targets
-    # What targets are registered
-  end
-
-  def target_options_match_registered?(registered_targets, target_options)
-    # See If Options Match
-  end
-
-  def match_options
-    options = false
-    target_options_a = target_options.to_a
-    registered_targets_a = registered_targets.to_a
-
-    target_options_a.each do |a|
-      if registered_targets_a.include?(a)
-        options = true
-      else
-        options = false
-        break
-      end
-    end
-
-    options
-  end
-
-
 end

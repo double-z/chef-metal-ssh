@@ -25,6 +25,9 @@ install_rubygems)  echo "Install Gems"
 both)  echo  "Both Machines"
     sudo chef-client -z -o ssh_test::both
     ;;
+register)  echo  "Running Registration"
+    sudo chef-client -z -o ssh_test::register_target
+    ;;
 clean)  echo  "Deleting Nodes and Clients"
     rm -rf clients/*
     rm -rf nodes/*
