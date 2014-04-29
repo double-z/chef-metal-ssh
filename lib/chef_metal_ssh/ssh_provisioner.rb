@@ -1,3 +1,4 @@
+require 'json'
 require 'resolv'
 require 'chef_metal/provisioner'
 require 'chef_metal/version'
@@ -74,27 +75,39 @@ module ChefMetalSsh
     def acquire_machine(action_handler, node)
       # TODO verify that the existing provisioner_url in the node is the same as ours
 
+      begin
+        @ssh_cluster_path = Chef::Resource::SshCluster.path
+      rescue
+        raise "No SSH Cluster Defined"
+      end
+
       # Set up the modified node data
       provisioner_options = node['normal']['provisioner_options']
 
-      Chef::Log.debug("======================================>")
-      Chef::Log.debug("acquire_machine - provisioner_options.inspect: #{provisioner_options.inspect}")
-      Chef::Log.debug("======================================>")
+      # Individual Option Types
+      machine_options = node['normal']['provisioner_options']['machine_options']
+      ssh_options     = node['normal']['provisioner_options']['ssh_options']
 
-      @target_host = get_target_connection_method(node)
+      # Dont Search By Default, Force True Explicitly For Clarity of Action
+      @use_machine_registry = false
+      @use_machine_registry = true if provisioner_options['use_machine_registry'] == true
 
-      target_options = node['normal']['target_options']
+      if @use_machine_registry
+        registry_match = match_machine_options_to_registered(ssh_cluster_path, target_options)
+      end
 
-      Chef::Log.debug("======================================>")
-      Chef::Log.debug("acquire_machine - target_options: #{@target_options.inspect}")
-      Chef::Log.debug("======================================>")
+      if registry_match
+        machine_options = machine_options.merge!(machine_options, registry_match)
+      end
 
-      use_registered_target?(target_options)
+      @target_host = get_target_connection_method(machine_options)
+
+      machine_registry_file = File.join(@ssh_cluster_path, @target_host, ".json") 
 
       # Set up Provisioner Output
       # TODO - make url the chef server url path? maybe disk path if zero?
       provisioner_output = node['normal']['provisioner_output'] || {
-        'provisioner_url' =>   "ssh:#{@target_host}",
+        'provisioner_url' =>   "ssh:#{@machine_registry_file}",
         'name' => node['name']
       }
 
@@ -104,7 +117,7 @@ module ChefMetalSsh
 
       node['normal']['provisioner_output'] = provisioner_output
 
-      # Create machine object for callers to use
+      create_or_update_machine_registration_file(machine_options)
       machine_for(node)
     end
 
@@ -158,219 +171,218 @@ module ChefMetalSsh
       target_fqdn = ''
       target_fqdn = provisioner_options['target_fqdn'] || nil
 
-      remote_host = ''
-      if @target_host
-        remote_host = @target_host
-      elsif target_ip
-        raise 'Invalid IP' unless ( target_ip =~ Resolv::IPv4::Regex ||
-                                    target_ip =~ Resolv::IPv6::Regex )
-        remote_host = target_ip
-      elsif target_fqdn
-        rh = Resolv::Hosts.new
-        rd = Resolv.new
+      if provisioner_options['machine_options']
+        provisioner_options['machine_options']
 
-        begin
-          rh.getaddress(target_fqdn)
-          in_hosts_file = true
-        rescue
-          in_hosts_file = false
-        end
 
-        begin
-          rd.getaddress(target_fqdn)
-          in_dns = true
-        rescue
-          in_dns = false
-        end
+        remote_host = ''
+        if @target_host
+          remote_host = @target_host
+        elsif target_ip
+          raise 'Invalid IP' unless ( target_ip =~ Resolv::IPv4::Regex ||
+                                      target_ip =~ Resolv::IPv6::Regex )
+          remote_host = target_ip
+        elsif target_fqdn
+          rh = Resolv::Hosts.new
+          rd = Resolv.new
 
-        raise 'Unresolvable Hostname' unless ( in_hosts_file || in_dns )
-        remote_host = target_fqdn
-      else
-        raise "aint got no target yo, that dog dont hunt"
-      end
-
-      Chef::Log.debug("======================================>")
-      Chef::Log.debug("get_target_connection_method - remote_host: #{remote_host}")
-      Chef::Log.debug("======================================>")
-
-      remote_host
-    end
-
-    def machine_for(node)
-      ChefMetal::Machine::UnixMachine.new(node, transport_for(node), convergence_strategy_for(node))
-    end
-
-    def convergence_strategy_for(node)
-      @convergence_strategy ||= begin
-        ChefMetal::ConvergenceStrategy::InstallCached.new
-      end
-    end
-
-    def symbolize_keys(hash)
-      hash.inject({}){|result, (key, value)|
-        new_key = case key
-        when String then key.to_sym
-        else key
-        end
-        new_value = case value
-        when Hash then symbolize_keys(value)
-        else value
-        end
-        result[new_key] = new_value
-        result
-      }
-    end
-
-    # Setup Ssh
-    def create_ssh_transport(node)
-
-      provisioner_options     = node['normal']['provisioner_options']
-      provisioner_ssh_options = provisioner_options['ssh_options']
-
-      Chef::Log.debug("======================================>")
-      Chef::Log.debug("create_ssh_transport - target_host: #{@target_host}")
-      Chef::Log.debug("======================================>")
-
-      ##
-      # Ssh Username
-      username = ''
-      username = provisioner_options['ssh_user'] || 'vagrant'
-
-      Chef::Log.debug("======================================>")
-      Chef::Log.debug("create_ssh_transport - username: #{username}")
-      Chef::Log.debug("======================================>")
-
-      ##
-      # Ssh Password
-      ssh_pass = false
-      ssh_pass = provisioner_ssh_options['password'] if provisioner_ssh_options['password']
-      # ssh_pass = ssh_options[:password] if ssh_options[:password]
-
-      ##
-      # Ssh Key
-      ssh_keys = []
-      if provisioner_ssh_options['keys']
-        if provisioner_ssh_options['keys'].kind_of?(Array)
-          provisioner_ssh_options['keys'].each do |key|
-            ssh_keys << key
+          begin
+            rh.getaddress(target_fqdn)
+            in_hosts_file = true
+          rescue
+            in_hosts_file = false
           end
-        elsif provisioner_ssh_options['keys'].kind_of?(String)
-          ssh_keys << provisioner_ssh_options['keys']
+
+          begin
+            rd.getaddress(target_fqdn)
+            in_dns = true
+          rescue
+            in_dns = false
+          end
+
+          raise 'Unresolvable Hostname' unless ( in_hosts_file || in_dns )
+          remote_host = target_fqdn
         else
-          ssh_keys = false
+          raise "aint got no target yo, that dog dont hunt"
+        end
+
+        Chef::Log.debug("======================================>")
+        Chef::Log.debug("get_target_connection_method - remote_host: #{remote_host}")
+        Chef::Log.debug("======================================>")
+
+        remote_host
+      end
+
+      def machine_for(node)
+        ChefMetal::Machine::UnixMachine.new(node, transport_for(node), convergence_strategy_for(node))
+      end
+
+      def convergence_strategy_for(node)
+        @convergence_strategy ||= begin
+          ChefMetal::ConvergenceStrategy::InstallCached.new
         end
       end
 
-      Chef::Log.debug("======================================>")
-      if ssh_pass
-        Chef::Log.debug("create_ssh_transport - ssh_pass: #{ssh_pass}")
-      elsif ssh_keys
-        Chef::Log.debug("create_ssh_transport - ssh_key: #{ssh_keys.inpsect}")
-      else
-        Chef::Log.debug("create_ssh_transport - no ssh_pass or ssh_key given")
-      end
-      Chef::Log.debug("======================================>")
-
-      raise "no ssh_pass or ssh_key given" unless ( ssh_pass || ssh_keys )
-      ##
-      # Ssh Main Options
-      valid_ssh_options = [
-        :auth_methods, :bind_address, :compression, :compression_level, :config,
-        :encryption, :forward_agent, :hmac, :host_key,
-        :keepalive, :keepalive_interval, :kex, :keys, :key_data,
-        :languages, :logger, :paranoid, :password, :port, :proxy,
-        :rekey_blocks_limit,:rekey_limit, :rekey_packet_limit, :timeout, :verbose,
-        :global_known_hosts_file, :user_known_hosts_file, :host_key_alias,
-        :host_name, :user, :properties, :passphrase, :keys_only, :max_pkt_size,
-        :max_win_size, :send_env, :use_agent
-      ]
-
-      ##
-      # Ssh Main Options
-      ssh_options = symbolize_keys(provisioner_ssh_options)
-
-      # Validate Ssh Options
-      ssh_options.each { |k,v| raise 'Invalid Shh Option' unless valid_ssh_options.include?(k) }
-
-      ##
-      # Ssh Main Options
-      # ssh_options = symbolize_keys(provisioner_ssh_options)
-      # ssh_options = {
-      #   # TODO create a user known hosts file
-      #   #          :user_known_hosts_file => provisioner_options['ssh_connect_options']['UserKnownHostsFile'],
-      #   #          :paranoid => true,
-      #   # :auth_methods => [ 'publickey' ],
-      #   :keys_only => false,
-      #   :host_key => ssh_key,
-      #   :password => ssh_pass
-      # }
-
-      Chef::Log.debug("======================================>")
-      Chef::Log.debug("create_ssh_transport - ssh_options: #{ssh_options.inspect}")
-      Chef::Log.debug("======================================>")
-
-      # Make Sure We Can Connect
-      begin
-        ssh = Net::SSH.start(@target_host, username, ssh_options)
-        ssh.close
-        Chef::Log.debug("======================================>")
-        Chef::Log.debug("ABLE to Connect to #{@target_host} using #{username} and #{ssh_options.inspect}")
-        Chef::Log.debug("======================================>")
-      rescue
-        Chef::Log.debug("======================================>")
-        Chef::Log.debug("UNABLE to Connect to #{@target_host} using #{username} and #{ssh_options.inspect}")
-        Chef::Log.debug("======================================>")
-        raise "UNABLE to Connect to #{@target_host} using #{username} and #{ssh_options.inspect}"
+      def symbolize_keys(hash)
+        hash.inject({}){|result, (key, value)|
+          new_key = case key
+          when String then key.to_sym
+          else key
+          end
+          new_value = case value
+          when Hash then symbolize_keys(value)
+          else value
+          end
+          result[new_key] = new_value
+          result
+        }
       end
 
-      ##
-      # Ssh Additional Options
-      options = {}
-      #Enable pty by default
-      options[:ssh_pty_enable] = true
+      # Setup Ssh
+      def create_ssh_transport(node)
 
-      if username != 'root'
-        options[:prefix] = 'sudo '
+        provisioner_options     = node['normal']['provisioner_options']
+        provisioner_ssh_options = provisioner_options['ssh_options']
+
+        Chef::Log.debug("======================================>")
+        Chef::Log.debug("create_ssh_transport - target_host: #{@target_host}")
+        Chef::Log.debug("======================================>")
+
+        ##
+        # Ssh Username
+        username = ''
+        username = provisioner_options['ssh_user'] || 'vagrant'
+
+        Chef::Log.debug("======================================>")
+        Chef::Log.debug("create_ssh_transport - username: #{username}")
+        Chef::Log.debug("======================================>")
+
+        ##
+        # Ssh Password
+        ssh_pass = false
+        ssh_pass = provisioner_ssh_options['password'] if provisioner_ssh_options['password']
+        # ssh_pass = ssh_options[:password] if ssh_options[:password]
+
+        ##
+        # Ssh Key
+        ssh_keys = []
+        if provisioner_ssh_options['keys']
+          if provisioner_ssh_options['keys'].kind_of?(Array)
+            provisioner_ssh_options['keys'].each do |key|
+              ssh_keys << key
+            end
+          elsif provisioner_ssh_options['keys'].kind_of?(String)
+            ssh_keys << provisioner_ssh_options['keys']
+          else
+            ssh_keys = false
+          end
+        end
+
+        Chef::Log.debug("======================================>")
+        if ssh_pass
+          Chef::Log.debug("create_ssh_transport - ssh_pass: #{ssh_pass}")
+        elsif ssh_keys
+          Chef::Log.debug("create_ssh_transport - ssh_key: #{ssh_keys.inpsect}")
+        else
+          Chef::Log.debug("create_ssh_transport - no ssh_pass or ssh_key given")
+        end
+        Chef::Log.debug("======================================>")
+
+        raise "no ssh_pass or ssh_key given" unless ( ssh_pass || ssh_keys )
+        ##
+        # Ssh Main Options
+        valid_ssh_options = [
+          :auth_methods, :bind_address, :compression, :compression_level, :config,
+          :encryption, :forward_agent, :hmac, :host_key,
+          :keepalive, :keepalive_interval, :kex, :keys, :key_data,
+          :languages, :logger, :paranoid, :password, :port, :proxy,
+          :rekey_blocks_limit,:rekey_limit, :rekey_packet_limit, :timeout, :verbose,
+          :global_known_hosts_file, :user_known_hosts_file, :host_key_alias,
+          :host_name, :user, :properties, :passphrase, :keys_only, :max_pkt_size,
+          :max_win_size, :send_env, :use_agent
+        ]
+
+        ##
+        # Ssh Main Options
+        ssh_options = symbolize_keys(provisioner_ssh_options)
+
+        # Validate Ssh Options
+        ssh_options.each { |k,v| raise 'Invalid Shh Option' unless valid_ssh_options.include?(k) }
+
+        Chef::Log.debug("======================================>")
+        Chef::Log.debug("create_ssh_transport - ssh_options: #{ssh_options.inspect}")
+        Chef::Log.debug("======================================>")
+
+        # Make Sure We Can Connect
+        begin
+          ssh = Net::SSH.start(@target_host, username, ssh_options)
+          ssh.close
+          Chef::Log.debug("======================================>")
+          Chef::Log.debug("ABLE to Connect to #{@target_host} using #{username} and #{ssh_options.inspect}")
+          Chef::Log.debug("======================================>")
+        rescue
+          Chef::Log.debug("======================================>")
+          Chef::Log.debug("UNABLE to Connect to #{@target_host} using #{username} and #{ssh_options.inspect}")
+          Chef::Log.debug("======================================>")
+          raise "UNABLE to Connect to #{@target_host} using #{username} and #{ssh_options.inspect}"
+        end
+
+        ##
+        # Ssh Additional Options
+        options = {}
+
+        #Enable pty by default
+        options[:ssh_pty_enable] = true
+
+        # If we not root use sudo
+        if username != 'root'
+          options[:prefix] = 'sudo '
+        end
+
+        Chef::Log.debug("======================================>")
+        Chef::Log.debug("create_ssh_transport - options: #{options.inspect}")
+        Chef::Log.debug("======================================>")
+
+        ChefMetal::Transport::SSH.new(@target_host, username, ssh_options, options)
       end
 
-      Chef::Log.debug("======================================>")
-      Chef::Log.debug("create_ssh_transport - options: #{options.inspect}")
-      Chef::Log.debug("======================================>")
-
-      ChefMetal::Transport::SSH.new(@target_host, username, ssh_options, options)
     end
 
-  end
+    def validate_machine_options(node)
 
-  def get_registered_target
-    registered_targets
-    target_options_match_registered?(registered_targets, target_options)
-  end
-  
-  def registered_targets
-    # What targets are registered
-  end
+      allowed_new_machine_keys = %w{
+        ssh_cluster_path
+        machine_types
+        mac_address
+        ip_address
+        subnet
+        hostname
+        domain
+        fqdn
+        memory
+        cpu_count
+        cpu_type
+        arch
+      }
 
-  def target_options_match_registered?(registered_targets, target_options)
-    # See If Options Match
-  end
+      # Validate Machine Options
+      new_machine.each { |k,v| raise 'Invalid Machine Option' unless allowed_new_machine_keys.include?(k) }
 
-  def match_options
-    options = false
-    target_options_a = target_options.to_a
-    registered_targets_a = registered_targets.to_a
-
-    target_options_a.each do |a|
-      if registered_targets_a.include?(a)
-        options = true
-      else
-        options = false
-        break
+      if new_machine['cpu_type'] && ! new_machine['cpu_type'].empty?
+        raise "Bad Cpu Type" unless ( new_machine['cpu_type'] == 'intel' || new_machine['cpu_type'] == 'amd' )
       end
+
+      if new_machine['arch']
+        raise "No Such Arch. Either i386 or x86_64" unless ( new_machine['arch'] == 'i386' || new_machine['arch'] == 'x86_64' )
+      end
+
     end
 
-    options
-  end
-
-
-end
+    def registered_machine_is_available?(v)
+      case v
+      when "false"
+        false
+      when "true"
+        true
+      end
+    end

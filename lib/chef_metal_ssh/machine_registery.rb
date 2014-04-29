@@ -1,57 +1,21 @@
-#!/usr/bin/env ruby
-require 'json'
 
-new_machine = {
-  "cpu_type" => "",
-  "memory" => "256",
-  "subnet" => "255.255.255.0",
-  "machine_types" => [
-    # "app_servers",
-    # "web_server"
-  ],
-  "ip_address" => "192.168.33.21"
-}
-
-def validate_machine_options(node)
-  allowed_new_machine_keys = %w{
-    ssh_cluster_path
-    machine_types
-    mac_address
-    ip_address
-    subnet
-    hostname
-    domain
-    fqdn
-    memory
-    cpu_count
-    cpu_type
-    arch
-  }
-
-  # Validate Machine Options
-  new_machine.each { |k,v| raise 'Invalid Machine Option' unless allowed_new_machine_keys.include?(k) }
-
-  if new_machine['cpu_type'] && ! new_machine['cpu_type'].empty?
-    raise "Bad Cpu Type" unless ( new_machine['cpu_type'] == 'intel' || new_machine['cpu_type'] == 'amd' )
-  end
-
-  if new_machine['arch']
-    raise "No Such Arch. Either i386 or x86_64" unless ( new_machine['arch'] == 'i386' || new_machine['arch'] == 'x86_64' )
-  end
-
+def get_registered_target
+  registered_targets
+  target_options_match_registered?(registered_targets, target_options)
 end
 
-def registered_machine_is_available?(v)
-  case v
-  when "false"
-    false
-  when "true"
-    true
+def register_target(node)
+
+  ChefMetal.inline_resource(self) do
+    file ::File.join(Chef::Resource::SshCluster.path, "#{ip_address}.json") do
+      content target_registration_file_json
+    end
   end
 end
 
-def match_and_registered
-  Dir.glob('/tmp/rgm/*.json').sort.each do |registered_machine_file|
+def target_options_match_registered?(ssh_cluster_path, target_options)
+
+  Dir.glob("#{ssh_cluster_path}/*.json").sort.each do |registered_machine_file|
 
     # Not Available By Default.
     available_registered_machine = false
@@ -74,20 +38,9 @@ def match_and_registered
             when String
               # see if registered_machine value equals value in new_machine
               if v == new_machine[k]
-                # puts 'value'
-                # puts v
-                # puts 'new_machine[k]'
-                # puts new_machine[k]
                 will_work = true
               else
-                # puts 'nah'
-                # puts 'v'
-                # puts v
-                # puts 'new_machine[k]'
-                # puts new_machine[k]
-                # next if new_machine[k].nil? || new_machine[k].empty?
                 not_gonna_work = true unless new_machine[k].nil? || new_machine[k].empty?
-                # raise 'nah'
               end
             when Array
               Array(new_machine[k]).each do |sv|
@@ -131,26 +84,3 @@ def match_and_registered
 
   end
 end
-
-
-# registered_machine = {
-#   "available" =>  "false",
-#   # "available" =>  "true",
-#   "ip_address" =>  "192.168.33.22",
-#   "mac_address" =>  "",
-#   "hostname" =>  "",
-#   "subnet" =>  "",
-#   "domain" =>  "",
-#   "fqdn" =>  "",
-#   "allowed_machine_types" => [
-#     "app_server",
-#     "web_server"
-#   ],
-#   "assign_machine_types" => [
-
-#   ],
-#   "memory" =>  "",
-#   "cpu_count" =>  "",
-#   "cpu_type" =>  "",
-#   "arch" =>  ""
-# }

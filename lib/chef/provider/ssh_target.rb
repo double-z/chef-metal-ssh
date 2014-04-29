@@ -57,8 +57,7 @@ def target_registration_file_json
   target_registration_file_content = {}
   target_registration_file_content = target_registration_file_content.merge!({ 'available' => new_resource.available })
   target_registration_file_content = target_registration_file_content.merge!({ 'ip_address' => new_resource.name })
-  target_registration_file_content = target_registration_file_content.merge!({ 'allowed_machine_types' => new_resource.allowed_machine_types })
-  target_registration_file_content = target_registration_file_content.merge!({ 'assigned_machine_types' => new_resource.assigned_machine_types })  
+  target_registration_file_content = target_registration_file_content.merge!({ 'machine_types' => new_resource.machine_types })
   target_registration_file_content = target_registration_file_content.merge!({ 'mac_address' => new_resource.mac_address }) #if new_resource.mac_address
   target_registration_file_content = target_registration_file_content.merge!({ 'hostname' => new_resource.hostname }) #if new_resource.hostname
   target_registration_file_content = target_registration_file_content.merge!({ 'subnet' => new_resource.subnet }) #if new_resource.subnet

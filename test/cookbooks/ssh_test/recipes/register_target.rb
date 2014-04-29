@@ -19,7 +19,7 @@ end
 # Machine One
 ssh_target "192.168.33.22" do
   action :register
-  allowed_machine_types ['app_server', 'web_server']
+  machine_types ['app_server', 'web_server']
   # ssh_cluster_path "/vagrant/test/ssh_cluster"
   # mac_address ""
 end

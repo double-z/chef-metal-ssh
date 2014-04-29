@@ -16,7 +16,7 @@ source = {
 }
 
 registration = {
-  "available" =>  "true",
+  "available" =>  "false",
   "ip_address" =>  "192.168.33.22",
   "mac_address" =>  "",
   "hostname" =>  "",

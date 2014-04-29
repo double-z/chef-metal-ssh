@@ -1,3 +1,4 @@
+test/ssh_cluster/*.json
 *.deb
 *.gem
 *.rbc

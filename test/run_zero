@@ -1,12 +1,15 @@
 #!/bin/bash
 
 CHEF_CLIENT=`which chef-client`
-
+APT_INSTALLED=`test -f /var/lib/apt/periodic/update-success-stamp`
 case "$1" in
 
 install_local)  echo "Install Gems"
-    sudo apt-get update
-    sudo apt-get install curl vim-nox -y
+    if [ -z $APT_INSTALLED ]
+    then
+      sudo apt-get update
+      sudo apt-get install curl vim-nox -y
+    fi
     if [ -z $CHEF_CLIENT ]
     then
       curl -L https://www.opscode.com/chef/install.sh | sudo bash

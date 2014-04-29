@@ -6,13 +6,14 @@ require 'chef_metal_ssh/ssh_provisioner'
 #   :client_name => Chef::Config[:node_name],
 #   :signing_key_filename => Chef::Config[:client_key]
 # }
+include_recipe 'ssh_test::register_target'
 
 with_chef_local_server :chef_repo_path => "/vagrant/test",
                        :port => "8900"
 
 machine "one" do
-  #action :converge
-  action :create
+  action [:create, :converge]
+  #action :create
   # converge true
   provisioner ChefMetalSsh::SshProvisioner.new
   provisioner_options 'target_ip' => '192.168.33.21',

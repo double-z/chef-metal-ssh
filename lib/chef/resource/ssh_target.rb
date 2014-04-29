@@ -40,11 +40,7 @@ class Chef::Resource::SshTarget < Chef::Resource::LWRPBase
   	:kind_of => [String],
   	:default => "true"
 
-  attribute :allowed_machine_types, 
-  	:kind_of => [Array],
-  	:default => Array.new
-
-  attribute :assigned_machine_types, 
+  attribute :machine_types, 
   	:kind_of => [Array],
   	:default => Array.new
 
