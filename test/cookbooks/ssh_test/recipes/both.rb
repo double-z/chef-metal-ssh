@@ -12,8 +12,9 @@ with_chef_local_server :chef_repo_path => "/vagrant/test",
                        :port => "8900"
 
 machine "one" do
-  action [:create, :converge]
+  #action [:create, :converge]
   #action :create
+  action :converge
   # converge true
   provisioner ChefMetalSsh::SshProvisioner.new
   provisioner_options 'target_ip' => '192.168.33.21',

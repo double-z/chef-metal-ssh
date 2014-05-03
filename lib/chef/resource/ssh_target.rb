@@ -24,6 +24,14 @@ class Chef::Resource::SshTarget < Chef::Resource::LWRPBase
   	:kind_of => [String],
   	:default => ""
 
+  attribute :password,
+    :kind_of => [String],
+    :default => ""
+ 
+  attribute :key,
+    :kind_of => [String],
+    :default => ""
+ 
   attribute :subnet,
   	:kind_of => [String],
   	:default => ""

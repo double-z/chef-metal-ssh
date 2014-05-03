@@ -31,9 +31,10 @@ both)  echo  "Both Machines"
 register)  echo  "Running Registration"
     sudo chef-client -z -o ssh_test::register_target
     ;;
-clean)  echo  "Deleting Nodes and Clients"
+clean)  echo  "Deleting Nodes and Clients and Ssh Cluster"
     rm -rf clients/*
     rm -rf nodes/*
+    rm -rf ssh_cluster/*
     ;;
 *) echo "der der der"
    ;;

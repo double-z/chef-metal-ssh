@@ -14,11 +14,11 @@ module ChefMetalSsh
     # ## Parameters
     # cluster_path - path to the directory containing the vagrant files, which
     #                should have been created with the vagrant_cluster resource.
-    def initialize(target_host=nil)
-      @target_host = target_host
+    def initialize(cluster_path=nil)
+      @cluster_path = cluster_path
     end
 
-    attr_reader :target_host
+    attr_reader :cluster_path
 
     # Inflate a provisioner from node information; we don't want to force the
     # driver to figure out what the provisioner really needs, since it varies
@@ -29,19 +29,7 @@ module ChefMetalSsh
     #
     # returns a VagrantProvisioner
     def self.inflate(node)
-      # /opt/chef/embedded/bin/metal -z -c .chef/knife.rb execute one sudo chef-client -l debug
-      #       machine = new_resource.provisioner.acquire_machine(self, node_json)
-      # begin
-      #   machine.setup_convergence(self, new_resource)
-      #   # If the chef server lives on localhost, tunnel the port through to the guest
-      #     chef_server_url = machine_resource.chef_server[:chef_server_url]
-      #     chef_server_url = machine.make_url_available_to_remote(chef_server_url)
-      #   node_url = node['normal']['provisioner_output']['provisioner_url']
-      #   local_url = 'http://127.0.0.1:5900'
-      #   target_host = node_url.split(':', 2)[1]
-      #   transport = transport_for(node)
-      #   transport.make_url_available_to_remote(local_url)
-      #   self.new(target_host)
+      self.new
     end
 
     # Acquire a machine, generally by provisioning it.  Returns a Machine
@@ -73,7 +61,6 @@ module ChefMetalSsh
     #           -- name: container name
     #
     def acquire_machine(action_handler, node)
-      # TODO verify that the existing provisioner_url in the node is the same as ours
 
       begin
         @ssh_cluster_path = Chef::Resource::SshCluster.path
@@ -81,33 +68,69 @@ module ChefMetalSsh
         raise "No SSH Cluster Defined"
       end
 
-      # Set up the modified node data
+      # Set up the modified node data local variable
       provisioner_options = node['normal']['provisioner_options']
 
-      # Individual Option Types
-      machine_options = node['normal']['provisioner_options']['machine_options']
-      ssh_options     = node['normal']['provisioner_options']['ssh_options']
+      # Set and Validate Machine Options
+      ssh_options = provisioner_options['ssh_options']
 
-      # Dont Search By Default, Force True Explicitly For Clarity of Action
-      @use_machine_registry = false
-      @use_machine_registry = true if provisioner_options['use_machine_registry'] == true
+      begin
+        existing_provisioner_output = node['normal']['provisioner_output']
+      rescue
+        existing_provisioner_output = false
+      end
+
+      # See if we have existing provisioner output
+      if existing_provisioner_output
+        begin
+          existing_provisioner_url = existing_provisioner_output['provisioner_url']
+        rescue
+          raise "WTH? HTF we have provisioner output and no provisioner_url?"
+        end
+      end
+
+      current_provisioner_url = File.join(@ssh_cluster_path, node['name'], ".json")
+
+      # Set and Validate Machine Options
+      if existing_provisioner_url
+        raise "Existing and Current Provisioner Urls Dont Match" unless current_provisioner_url ==
+          existing_provisioner_url
+        begin
+          machine_options = JSON.parse(File.read(existing_provisioner_url))
+        rescue
+          raise "Can't Read existing machine registration provisioner_url"
+        end
+        # Dont Search The Registry, We already Registered
+        @use_machine_registry = false
+        @machine_registration_file = existing_provisioner_url
+      else
+        machine_options = provisioner_options['machine_options'] if provisioner_options['machine_options']
+        # Dont Search By Default, Force True Explicitly For Clarity of Action
+        @use_machine_registry = false unless provisioner_options['use_machine_registry'] == true
+      end
 
       if @use_machine_registry
         registry_match = match_machine_options_to_registered(ssh_cluster_path, target_options)
       end
 
+      registration_state = 'registry_match'
       if registry_match
         machine_options = machine_options.merge!(machine_options, registry_match)
+        registration_state = 'registry_match'
+      else
+        registration_state = 'new_registration_entry' unless @machine_registration_file
       end
 
-      @target_host = get_target_connection_method(machine_options)
+      provisioner_options['machine_options'] = machine_options
 
-      machine_registry_file = File.join(@ssh_cluster_path, @target_host, ".json") 
+
+
+      @machine_registration_file = current_provisioner_url unless @machine_registration_file
 
       # Set up Provisioner Output
       # TODO - make url the chef server url path? maybe disk path if zero?
       provisioner_output = node['normal']['provisioner_output'] || {
-        'provisioner_url' =>   "ssh:#{@machine_registry_file}",
+        'provisioner_url' =>   "ssh:#{@machine_registration_file}",
         'name' => node['name']
       }
 
@@ -117,17 +140,18 @@ module ChefMetalSsh
 
       node['normal']['provisioner_output'] = provisioner_output
 
-      create_or_update_machine_registration_file(machine_options)
+      create_registration_file(@machine_registration_file, machine_options) unless existing_provisioner_url
       machine_for(node)
     end
 
     # Connect to machine without acquiring it
     def connect_to_machine(node)
-      @target_host = get_target_connection_method(node)
-
-      Chef::Log.debug("======================================>")
-      Chef::Log.debug("connect_to_machine - target_host: #{@target_host}")
-      Chef::Log.debug("======================================>")
+      provisioner_url = node['normal']['provisioner_output']['provisioner_url']
+      begin
+        node['normal']['provisioner_options']['machine_options'] = JSON.parse(File.read(provisioner_url))
+      rescue
+        raise "Can't Read existing machine registration provisioner_url"
+      end
 
       machine_for(node)
     end
@@ -155,8 +179,8 @@ module ChefMetalSsh
     end
 
     # Not meant to be part of public interface
-    def transport_for(node)
-      create_ssh_transport(node)
+    def transport_for(node, machine_options)
+      create_ssh_transport(node, machine_options)
     end
 
     protected
@@ -213,8 +237,8 @@ module ChefMetalSsh
         remote_host
       end
 
-      def machine_for(node)
-        ChefMetal::Machine::UnixMachine.new(node, transport_for(node), convergence_strategy_for(node))
+      def machine_for(node, machine_options = "false")
+        ChefMetal::Machine::UnixMachine.new(node, transport_for(node, machine_options), convergence_strategy_for(node))
       end
 
       def convergence_strategy_for(node)
@@ -241,8 +265,11 @@ module ChefMetalSsh
       # Setup Ssh
       def create_ssh_transport(node)
 
+        @target_host = get_target_connection_method(machine_options)
+
         provisioner_options     = node['normal']['provisioner_options']
         provisioner_ssh_options = provisioner_options['ssh_options']
+        machine_options         = provisioner_options['machine_options']
 
         Chef::Log.debug("======================================>")
         Chef::Log.debug("create_ssh_transport - target_host: #{@target_host}")
@@ -251,7 +278,7 @@ module ChefMetalSsh
         ##
         # Ssh Username
         username = ''
-        username = provisioner_options['ssh_user'] || 'vagrant'
+        username = provisioner_options['ssh_user'] || 'root'
 
         Chef::Log.debug("======================================>")
         Chef::Log.debug("create_ssh_transport - username: #{username}")
@@ -376,13 +403,4 @@ module ChefMetalSsh
         raise "No Such Arch. Either i386 or x86_64" unless ( new_machine['arch'] == 'i386' || new_machine['arch'] == 'x86_64' )
       end
 
-    end
-
-    def registered_machine_is_available?(v)
-      case v
-      when "false"
-        false
-      when "true"
-        true
-      end
     end

@@ -20,6 +20,7 @@ rdoc
 spec/reports
 test/Gemfile*
 test/tmp
+test/t?.rb
 test/nodes/*.json
 test/clients/*.json
 test/data_bags/**/*.json
