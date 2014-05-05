@@ -13,8 +13,11 @@ class Chef::Provider::SshTarget < Chef::Provider::LWRPBase
   end
 
   action :register do
+
     ip_address = new_resource.name
+    target_registration_file_json = target_registration_file_to_json(new_resource)
     base_ssh_cluster_path = new_resource.ssh_cluster_path
+
     ChefMetal.inline_resource(self) do
       file ::File.join(Chef::Resource::SshCluster.path, "#{ip_address}.json") do
         content target_registration_file_json
@@ -26,40 +29,17 @@ class Chef::Provider::SshTarget < Chef::Provider::LWRPBase
   end
 end
 
-def target_registration_file_json
+def target_registration_file_to_json(new_resource)
 
-  if Chef::Resource::SshCluster.path
-    puts 'yup'
-    puts 'yup'
-    puts 'yup'
-    puts 'yup'
-    puts 'yup'
-    puts 'yup'
-    puts Chef::Resource::SshCluster.path
-    puts 'yup'
-    puts 'yup'
-    puts 'yup'
-    puts 'yup'
-    puts 'yup'
-  else
-   puts 'nope'
-   puts 'nope'
-   puts 'nope'
-   puts 'nope'
-   puts 'nope'
-   puts 'nope'
-   puts 'nope'
-   puts 'nope'
-   puts 'nope'
-  end
-
-  # Determine contents of vm file
+  # Determine contents of registration file
   target_registration_file_content = {}
   target_registration_file_content = target_registration_file_content.merge!({ 'available' => new_resource.available })
   target_registration_file_content = target_registration_file_content.merge!({ 'ip_address' => new_resource.name })
   target_registration_file_content = target_registration_file_content.merge!({ 'machine_types' => new_resource.machine_types })
   target_registration_file_content = target_registration_file_content.merge!({ 'mac_address' => new_resource.mac_address }) #if new_resource.mac_address
   target_registration_file_content = target_registration_file_content.merge!({ 'hostname' => new_resource.hostname }) #if new_resource.hostname
+  target_registration_file_content = target_registration_file_content.merge!({ 'password' => new_resource.password }) #if new_resource.hostname
+  target_registration_file_content = target_registration_file_content.merge!({ 'key' => new_resource.key }) #if new_resource.hostname
   target_registration_file_content = target_registration_file_content.merge!({ 'subnet' => new_resource.subnet }) #if new_resource.subnet
   target_registration_file_content = target_registration_file_content.merge!({ 'domain' => new_resource.domain }) #if new_resource.domain
   target_registration_file_content = target_registration_file_content.merge!({ 'fqdn' => new_resource.fqdn }) #if new_resource.fqdn

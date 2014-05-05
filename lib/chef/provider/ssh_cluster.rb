@@ -29,4 +29,5 @@ class Chef::Provider::SshCluster < Chef::Provider::LWRPBase
 
   def load_current_resource
   end
+
 end

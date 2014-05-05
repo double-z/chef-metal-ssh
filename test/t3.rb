@@ -73,6 +73,8 @@ registered_machine.each do |reg_mach|
           # see if registered_machine value equals value in new_machine
           begin
             if v == new_machine[k]
+              puts 'k'
+              puts k
               puts 'v'
               puts v
               puts 'new_machine[k]'
