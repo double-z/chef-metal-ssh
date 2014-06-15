@@ -70,11 +70,6 @@ module ChefMetalSsh
 
       # Set up the modified node data local variable
       provisioner_options = node['normal']['provisioner_options']
-      puts "provisioner_options"
-      puts "provisioner_options"
-      puts "provisioner_options"
-      puts "provisioner_options"
-      puts provisioner_options.inspect
 
       # Validate Machine Options
       ssh_options = provisioner_options['ssh_options']
@@ -101,14 +96,6 @@ module ChefMetalSsh
       provisioner_machine_options = unstripped_provisioner_machine_options # JSON.parse(unstripped_provisioner_machine_options).delete_if { |k, v| puts "#{v.inspect} VVVVV" }
       # |k, v| v.empty? }
       provisioner_machine_options['node_name'] = node['name']
-      puts "provisioner_machine_options"
-      puts "provisioner_machine_options"
-      puts 'node["name"]'
-      puts node['name']
-      puts "provisioner_machine_options"
-      puts "provisioner_machine_options"
-      puts "provisioner_machine_options"
-      puts provisioner_machine_options
       begin
         existing_provisioner_output = node['normal']['provisioner_output']
       rescue
@@ -129,10 +116,6 @@ module ChefMetalSsh
 
       # Set and Validate Machine Options
       if existing_provisioner_path
-        puts "current_provisioner_path"
-        puts current_provisioner_path
-        puts "existing_provisioner_path"
-        puts existing_provisioner_path
         raise "Existing and Current Provisioner Urls Dont Match" unless
         current_provisioner_path == existing_provisioner_path
         begin
@@ -142,17 +125,7 @@ module ChefMetalSsh
         end
         provisioner_machine_options_password = provisioner_machine_options['password']
         machine_options = existing_machine_options.merge!(provisioner_machine_options)
-
-        puts "provisioner_machine_options_password"
-        puts provisioner_machine_options_password
-
-        puts "machine_options['password']"
-        puts machine_options.inspect
-
         machine_options['password'] = provisioner_machine_options_password if machine_options['password'].strip.empty?
-
-        puts "machine_options['password'] after merge"
-        puts machine_options['password']
 
         # Dont Search The Registry, We already Registered
         @use_machine_registry = false
@@ -176,13 +149,9 @@ module ChefMetalSsh
       # actual provisioning in which case it would get orphaned
       new_machine_registry_match = false
       if @use_machine_registry
-        puts "use_machine_registry"
         registry_match = false
         registry_match = match_machine_options_to_registered(ssh_cluster_path, provisioner_machine_options)
         if registry_match && !registry_match.nil?
-          puts "registry_match.inspect"
-          registry_match.inspect
-          puts "We Have Registry Match"
           provisioner_machine_options_password = provisioner_machine_options['password']
           machine_options = registry_match
           machine_options['password'] = provisioner_machine_options_password if
@@ -192,23 +161,13 @@ module ChefMetalSsh
           # If we made it this far
           # then we dont exist already and
           # we didnt match in machine registry
-          puts "we dont exist already and we didnt match in machine registry"
-          puts provisioner_machine_options.inspect
-          puts "we dont exist already and we didnt match in machine registry"
           machine_options = provisioner_machine_options
         end
       else
         puts "Not Using Machine Registry"
       end
 
-      puts "machine_options"
-      puts  machine_options.inspect
-
-
-
       provisioner_options['machine_options'] = machine_options
-      puts "provisioner_options['machine_options']"
-      puts provisioner_options['machine_options'].inspect
       raise "We Have No Machine Options" unless provisioner_options['machine_options']
 
       # Set up Provisioner Output
@@ -236,7 +195,7 @@ module ChefMetalSsh
       existing_machine_options = JSON.parse(File.read(provisioner_path)) # rescue nil
       node_machine_options = node['normal']['provisioner_options']['machine_options']
       unless node_machine_options['password']
-        puts "Password Not in Provisioner Machine Options"
+        Chef::Log.debug "Password Not in Provisioner Machine Options"
         node_machine_options['password'] = existing_machine_options['password'] ?
           existing_machine_options['password'] : nil
       end
@@ -437,9 +396,9 @@ module ChefMetalSsh
       # Validate Ssh Options
       ssh_options.each { |k,v| raise 'Invalid Shh Option' unless valid_ssh_options.include?(k) }
 
-      puts "======================================>"
-      puts "create_ssh_transport - ssh_options: #{ssh_options.inspect}"
-      puts "======================================>"
+      Chef::Log.debug "======================================>"
+      Chef::Log.debug "create_ssh_transport - ssh_options: #{ssh_options.inspect}"
+      Chef::Log.debug "======================================>"
 
       # Now That We Validated Options, Lets Get Our Target
       @target_host = get_target_connection_method(machine_options)

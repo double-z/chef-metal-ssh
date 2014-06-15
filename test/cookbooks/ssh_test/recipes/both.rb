@@ -68,23 +68,23 @@ machine "two" do
   # notifies :run, 'execute[run_touch2]'
 end
 
-# machine "three" do
-#   action :create
-#   # action :nothing
-#   # converge true
-#   provisioner ChefMetalSsh::SshProvisioner.new
-#   provisioner_options "ssh_options" => {
-#                         'user' => 'vagrant'
-#                       },
-#                       'machine_options' => {
-#                         'ip_address' => '192.168.33.22',
-#                         'machine_types' => ['app_server', 'web_server'],
-#                         'password' => 'vagrant'
-#                       }
-#   recipe 'ssh_test::remote1'
-#   # recipe 'ssh_test::remote2'
-#   # notifies :run, 'execute[run_touch2]'
-# end
+machine "three" do
+  action :create
+  # action :nothing
+  # converge true
+  provisioner ChefMetalSsh::SshProvisioner.new
+  provisioner_options "ssh_options" => {
+                        'user' => 'vagrant'
+                      },
+                      'machine_options' => {
+                        'ip_address' => '192.168.33.22',
+                        'machine_types' => ['app_server', 'web_server'],
+                        'password' => 'vagrant'
+                      }
+  recipe 'ssh_test::remote1'
+  # recipe 'ssh_test::remote2'
+  # notifies :run, 'execute[run_touch2]'
+end
 
 
 # execute 'run_touch2' do

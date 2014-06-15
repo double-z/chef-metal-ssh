@@ -34,8 +34,6 @@ module ChefMetalSsh
     end
 
     def registered_machine_is_available?(v)
-      puts "V in REGISTERED AVAILABLE?"
-      puts v
       case v
       when "true"
         true
@@ -61,8 +59,6 @@ module ChefMetalSsh
       # if machine_options.has_key?("available") && machine_options["available"] == "false"
       #   raise ""
 
-      puts "machine_options create_registration_file"
-      puts machine_options.inspect
       node['normal']['provisioner_options']['machine_options']['available'] = machine_options["available"]
 
       machine_registration_file = ::File.join(Chef::Resource::SshCluster.path, "#{machine_options['ip_address']}.json")
@@ -83,9 +79,6 @@ module ChefMetalSsh
     end
 
     def match_machine_options_to_registered(ssh_cluster_path, machine_options)
-
-      puts 'match_machine_options_to_registered machine_options'
-      puts machine_options.inspect
 
       ssh_cluster_machines = File.join(ssh_cluster_path, "*.json")
 
@@ -108,45 +101,15 @@ module ChefMetalSsh
         # But Assume is Available till told its not
         available_registered_machine = true unless (available_registered_machine == false)
 
-        puts 'available_registered_machine outside loop'
-        if available_registered_machine
-          puts 'true available_registered_machine outside'
-        else
-          puts 'false available_registered_machine outside'
-        end
-
         registered_machine_json = JSON.parse(File.read(registered_machine_file))
-
-        puts 'registered_machine_json'
-        puts  registered_machine_json.inspect
 
         ip_address_match  = (registered_machine_json['ip_address'] == machine_options['ip_address']) # rescue false
         mac_address_match = (registered_machine_json['mac_address'] == machine_options['mac_address']) # rescue false
         fqdn_match        = (registered_machine_json['fqdn'] == machine_options['fqdn']) # rescue false
         hostname_match    = (registered_machine_json['hostname'] == machine_options['hostname']) # rescue false
 
-        # if !registered_machine_json.has_key?('available') || (
-        #     registered_machine_json.has_key?('available') &&
-        #     registered_machine_json['available'] == "true"
-        #   )
 
         registered_machine_json.each_pair do |k,v|
-
-
-          # Prepare To Save People From Themselves
-
-
-          # ip_address_match  = (k['ip_address'] == machine_options['ip_address']) # rescue false
-          # mac_address_match = (k['mac_address'] == machine_options['mac_address']) # rescue false
-          # fqdn_match        = (k['fqdn'] == machine_options['fqdn']) # rescue false
-          # hostname_match    = (k['hostname'] == machine_options['hostname']) # rescue false
-
-          puts 'available_registered_machine in loop'
-          if available_registered_machine
-            puts 'true available_registered_machine in loop'
-          else
-            puts 'false available_registered_machine in loop'
-          end
 
           # Check if key name is 'available' and if key value is true or false
           if k == "available"
@@ -154,61 +117,33 @@ module ChefMetalSsh
             available_registered_machine =
               registered_machine_is_available?(v) if available_registered_machine
 
-            # puts "BREAK" unless available_registered_machine
-            # next unless available_registered_machine
-
-            # Otherwise See If We Match
           elsif k == "node_name"
-            puts 'rmjnn = v'
-            puts v
-            puts 'rmjnn == machine_options[k]'
-            puts machine_options[k]
-            rmjnn = v
             if v == machine_options[k] && (!v.nil? || !v.empty?)
-              puts 'rmjnn false'
               node_name_match = true
             end
           else
             if machine_options.has_key?(k)
-              puts 'machine_options.has_key?(k)'
-              puts k
-              puts machine_options[k]
-              puts 'machine_options.has_key?(k) v'
-              puts v
               case v
               when String
-                puts "WE HAVE A STRING"
                 # see if registered_machine value equals value in machine_options
                 if v == machine_options[k] && !v.empty?
                   will_work         = true
-                  puts 'WILL WORK STRING'
                 else
-                  puts 'WONT WORK STRING'
                   not_gonna_work = true unless (v.empty? ||
                                                 machine_options[k].empty? ||
                                                 k == "password" )
-                  puts 'WONT WORK STRING' if not_gonna_work
-                  # next if not_gonna_work
                 end
               when Array
-                puts "WE HAVE AN ARRAY"
                 Array(machine_options[k]).each do |sv|
-                  puts "v"
-                  puts v.inspect
-                  puts "sv"
-                  puts sv.inspect
                   if v.include?(sv)
-                    puts 'WILL WORK ARRAY'
                     will_work = true
                   else
-                    puts 'WONT WORK ARRAY'
                     not_gonna_work = true
-                    # next if not_gonna_work
                   end
                 end
               when Hash
               else
-                puts "NOTHING?"
+                Chef::Log.debug "NOTHING?"
               end
             end
           end
@@ -228,43 +163,8 @@ module ChefMetalSsh
         #
         # - or we got nothin and move on to the next loop
         #
-        puts 'available_registered_machine in end'
-        if available_registered_machine
-          puts 'true available_registered_machine in end'
-        else
-          puts 'false available_registered_machine in end'
-        end
-
-        puts 'ip_address_match in end'
-        if ip_address_match
-          puts 'true ip_address_match in end'
-        else
-          puts 'false ip_address_match in end'
-        end
-
-        puts 'mac_address_match in end'
-        if mac_address_match
-          puts 'true mac_address_match in end'
-        else
-          puts 'false mac_address_match in end'
-        end
-
-        puts 'fqdn_match in end'
-        if fqdn_match
-          puts 'true fqdn_match in end'
-        else
-          puts 'false fqdn_match in end'
-        end
-
-        puts 'hostname_match in end'
-        if hostname_match
-          puts 'true hostname_match in end'
-        else
-          puts 'false hostname_match in end'
-        end
 
         if (will_work == true) && (not_gonna_work == false) && (available_registered_machine == true)
-          puts 'matched_machine_json will work'
           matched_machine_json = true
           # break
         end
@@ -296,20 +196,15 @@ module ChefMetalSsh
           error_message << ' NODE NAME,'
         end
 
-        # elsif mac_address_match || fqdn_match || hostname_match)
         if error_out && !available_registered_machine
-          error_message << ' but other given machine options failed to match.'
+          error_message << ' but they already exist.'
           error_message << ' Aborting to avoid inconsistencies.'
           raise error_message
-        else
-          puts "MOVED THROUGH ERROR TRAP"
         end
 
         ##
         # did we decide it will work?
         if matched_machine_json
-          puts 'matched_machine_json BLOCK'
-
           # Strip out any erroneous empty hash keys
           # so we don't overwrite non-empty registered values
           # with empty passed values
@@ -326,7 +221,6 @@ module ChefMetalSsh
           break
         else
           # wah wah wah
-          puts 'wah wah wah'
           @matched_machine_json = false
         end
       end
