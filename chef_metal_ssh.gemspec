@@ -20,7 +20,9 @@ Gem::Specification.new do |s|
   s.files = %w(Rakefile LICENSE.txt README.md) + Dir.glob("{distro,lib,tasks,spec}/**/*", File::FNM_DOTMATCH).reject {|f| File.directory?(f) }
 
   s.add_dependency 'chef'
-  s.add_dependency 'chef-metal', '~> 0.6'
+  s.add_dependency 'cheffish', '= 0.2.1'
+  s.add_dependency 'chef-metal-fog', '= 0.1'
+  s.add_dependency 'chef-metal', '= 0.9'
 
   s.add_development_dependency "bundler", "~> 1.5"
   s.add_development_dependency "rspec"

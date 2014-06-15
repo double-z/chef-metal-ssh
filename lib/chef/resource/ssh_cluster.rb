@@ -11,7 +11,7 @@ class Chef::Resource::SshCluster < Chef::Resource::LWRPBase
 
  def after_created
    super
-   ChefMetal.with_ssh_cluster path
+   ChefMetal.with_ssh_cluster(path)
    ssh_cluster_path(path)
  end
  

@@ -9,17 +9,19 @@ require 'chef_metal_ssh/ssh_provisioner'
 include_recipe 'ssh_test::register_target'
 
 with_chef_local_server :chef_repo_path => "/vagrant/test",
-                       :port => "8900"
+  :port => "8900"
 
 machine "one" do
-  #action [:create, :converge]
-  #action :create
-  action :converge
-  # converge true
+  # action [:create, :converge]
+  action :create
+  # action :converge
+  converge true
   provisioner ChefMetalSsh::SshProvisioner.new
-  provisioner_options 'target_ip' => '192.168.33.21',
-                      'ssh_user' => 'vagrant',
-                      'ssh_options' => {
+  provisioner_options "ssh_options" => {
+                        'user' => 'vagrant'
+                      },
+                      'machine_options' => {
+                        'ip_address' => '192.168.33.21',
                         'password' => 'vagrant'
                       }
   recipe 'ssh_test::remote1'
@@ -48,19 +50,42 @@ end
 
 # ##
 # # Machine Two
-# machine "two" do
-#   #action :create
-#   action :nothing
+machine "two" do
+  action :create
+  # action :nothing
+  converge true
+  provisioner ChefMetalSsh::SshProvisioner.new
+  provisioner_options "ssh_options" => {
+                        'user' => 'vagrant'
+                      },
+                      'machine_options' => {
+                        'ip_address' => '192.168.33.22',
+                        'machine_types' => ['app_server', 'web_server'],
+                        'password' => 'vagrant'
+                      }
+  recipe 'ssh_test::remote1'
+  # recipe 'ssh_test::remote2'
+  # notifies :run, 'execute[run_touch2]'
+end
+
+# machine "three" do
+#   action :create
+#   # action :nothing
 #   # converge true
 #   provisioner ChefMetalSsh::SshProvisioner.new
-#   provisioner_options 'target_ip' => '192.168.33.22',
-#                       'ssh_user' => 'vagrant',
-#                       'ssh_options' => {
+#   provisioner_options "ssh_options" => {
+#                         'user' => 'vagrant'
+#                       },
+#                       'machine_options' => {
+#                         'ip_address' => '192.168.33.22',
+#                         'machine_types' => ['app_server', 'web_server'],
 #                         'password' => 'vagrant'
 #                       }
-#   recipe 'ssh_test::remote2'
+#   recipe 'ssh_test::remote1'
+#   # recipe 'ssh_test::remote2'
 #   # notifies :run, 'execute[run_touch2]'
 # end
+
 
 # execute 'run_touch2' do
 #   command "echo #{Time.now} >> /tmp/iran2"

@@ -4,7 +4,7 @@ class Chef::Resource::SshTarget < Chef::Resource::LWRPBase
 
   self.resource_name = 'ssh_target'
   
-  actions :register
+  actions :register, :update
 
   default_action :register
 

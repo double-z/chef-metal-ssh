@@ -17,16 +17,39 @@ class Chef::Provider::SshTarget < Chef::Provider::LWRPBase
     ip_address = new_resource.name
     target_registration_file_json = target_registration_file_to_json(new_resource)
     base_ssh_cluster_path = new_resource.ssh_cluster_path
+    puts
+    puts '::File.join(Chef::Resource::SshCluster.path, "#{ip_address}.json")'
+    puts ::File.join(Chef::Resource::SshCluster.path, "#{ip_address}.json")
+
+    unless ::File.exists?(::File.join(Chef::Resource::SshCluster.path, "#{ip_address}.json"))
+      ChefMetal.inline_resource(self) do
+        file ::File.join(Chef::Resource::SshCluster.path, "#{ip_address}.json") do
+          Chef::Log.info(::File.join(Chef::Resource::SshCluster.path, "#{ip_address}.json"))
+          content target_registration_file_json
+          not_if { ::File.exists?(::File.join(Chef::Resource::SshCluster.path, "#{ip_address}.json")) }
+        end
+      end
+    end
+
+  end
+
+  action :update do
+
+    ip_address = new_resource.name
+    target_registration_file_json = target_registration_file_to_json(new_resource)
+    base_ssh_cluster_path = new_resource.ssh_cluster_path
 
     ChefMetal.inline_resource(self) do
       file ::File.join(Chef::Resource::SshCluster.path, "#{ip_address}.json") do
         content target_registration_file_json
+        not_if { ::File.exists?(::File.join(Chef::Resource::SshCluster.path, "#{ip_address}.json")) }
       end
     end
   end
 
   def load_current_resource
   end
+
 end
 
 def target_registration_file_to_json(new_resource)
