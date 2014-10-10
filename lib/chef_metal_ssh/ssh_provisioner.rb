@@ -1,3 +1,4 @@
+require 'json'
 require 'resolv'
 require 'chef_metal/provisioner'
 require 'chef_metal/version'
@@ -5,19 +6,22 @@ require 'chef_metal/machine/basic_machine'
 require 'chef_metal/machine/unix_machine'
 require 'chef_metal/convergence_strategy/install_cached'
 require 'chef_metal/transport/ssh'
+require 'chef_metal_ssh/machine_registry'
 
 module ChefMetalSsh
   # Provisions machines with ssh.
   class SshProvisioner < ChefMetal::Provisioner
 
+    include ChefMetalSsh::MachineRegistry
+
     # ## Parameters
     # cluster_path - path to the directory containing the vagrant files, which
     #                should have been created with the vagrant_cluster resource.
-    def initialize(target_host=nil)
-      @target_host = target_host
+    def initialize(ssh_cluster_path=nil)
+      @ssh_cluster_path = ssh_cluster_path
     end
 
-    attr_reader :target_host
+    attr_reader :ssh_cluster_path
 
     # Inflate a provisioner from node information; we don't want to force the
     # driver to figure out what the provisioner really needs, since it varies
@@ -26,21 +30,9 @@ module ChefMetalSsh
     # ## Parameters
     # node - node to inflate the provisioner for
     #
-    # returns a VagrantProvisioner
+    # returns a SshProvisioner
     def self.inflate(node)
-    # /opt/chef/embedded/bin/metal -z -c .chef/knife.rb execute one sudo chef-client -l debug
-    #       machine = new_resource.provisioner.acquire_machine(self, node_json)
-    # begin
-    #   machine.setup_convergence(self, new_resource)
-    #   # If the chef server lives on localhost, tunnel the port through to the guest
-    #     chef_server_url = machine_resource.chef_server[:chef_server_url]
-    #     chef_server_url = machine.make_url_available_to_remote(chef_server_url)
-    #   node_url = node['normal']['provisioner_output']['provisioner_url']
-    #   local_url = 'http://127.0.0.1:5900'
-    #   target_host = node_url.split(':', 2)[1]
-    #   transport = transport_for(node)
-    #   transport.make_url_available_to_remote(local_url)
-    #   self.new(target_host)
+      self.new
     end
 
     # Acquire a machine, generally by provisioning it.  Returns a Machine
@@ -72,25 +64,115 @@ module ChefMetalSsh
     #           -- name: container name
     #
     def acquire_machine(action_handler, node)
-      # TODO verify that the existing provisioner_url in the node is the same as ours
 
-      # Set up the modified node data
+      @ssh_cluster_path = Chef::Resource::SshCluster.path unless @ssh_cluster_path
+      raise "No SSH Cluster Defined" unless @ssh_cluster_path
+
+      # Set up the modified node data local variable
       provisioner_options = node['normal']['provisioner_options']
 
-      Chef::Log.debug("======================================>")
-      Chef::Log.debug("acquire_machine - provisioner_options.inspect: #{provisioner_options.inspect}")
-      Chef::Log.debug("======================================>")
+      # Validate Machine Options
+      ssh_options = provisioner_options['ssh_options']
+      ssh_pass_or_key_error = 'Key and Pass are defined in machine options'
+      ssh_pass_or_key_error << ' and merged into ssh_options for two reasons:'
+      ssh_pass_or_key_error << ' first to avoid multiple entry points for both'
+      ssh_pass_or_key_error << ' and second so passwords are stored in registry on disk'
+      ssh_pass_or_key_error << ' and not in node attribute on chef-server'
 
-      @target_host = get_target_connection_method(node)
+      ssh_options.each_pair { |k,v| raise ssh_pass_or_key_error if k == "key" || k == "password" }
 
-      Chef::Log.debug("======================================>")
-      Chef::Log.debug("acquire_machine - target_host: #{@target_host}")
-      Chef::Log.debug("======================================>")
+      begin
+        unstripped_provisioner_machine_options = JSON.parse(provisioner_options['machine_options'].to_json)
+      rescue
+        # Maybe we exist already and yanked the options from recipe?
+        # We Fail Later if we got nothin
+        empty_hash = Hash.new
+        unstripped_provisioner_machine_options = JSON.parse(empty_hash.to_json)
+        # raise "You must Provide Machine Options so we, uh, know what to do"
+      end
+
+      # Strip out any erroneous empty hash keys so we don't overwrite non-empty
+      # registered values with empty passed values
+      provisioner_machine_options = unstripped_provisioner_machine_options # JSON.parse(unstripped_provisioner_machine_options).delete_if { |k, v| puts "#{v.inspect} VVVVV" }
+      # |k, v| v.empty? }
+      provisioner_machine_options['node_name'] = node['name']
+      begin
+        existing_provisioner_output = node['normal']['provisioner_output']
+      rescue
+        existing_provisioner_output = false
+      end
+
+      # See if we have existing provisioner output provisioner_url
+      if existing_provisioner_output
+        begin
+          existing_provisioner_url = existing_provisioner_output['provisioner_url']
+          existing_provisioner_path = existing_provisioner_url.split(':', 2)[1].sub(/^\/\//, "")
+        rescue
+          raise "WTH? HTF we have provisioner output and no provisioner_url?"
+        end
+      end
+
+      current_provisioner_path = File.join(@ssh_cluster_path, "#{get_target_connection_method(provisioner_machine_options)}.json")
+
+      # Set and Validate Machine Options
+      if existing_provisioner_path
+        raise "Existing and Current Provisioner Urls Dont Match" unless
+        current_provisioner_path == existing_provisioner_path
+        begin
+          existing_machine_options = JSON.parse(File.read(existing_provisioner_path))
+        rescue
+          raise "Can't Read existing machine registration provisioner_path"
+        end
+        provisioner_machine_options_password = provisioner_machine_options['password']
+        machine_options = existing_machine_options.merge!(provisioner_machine_options)
+        machine_options['password'] = provisioner_machine_options_password if machine_options['password'].strip.empty?
+
+        # Dont Search The Registry, We already Registered
+        @use_machine_registry = false
+        @machine_registration_file = existing_provisioner_path
+      else
+        # Search By Default so we dont have any stray Registry Entries,
+        # Force False Explicitly For Clarity of Action
+        # @use_machine_registry = true unless provisioner_options['use_machine_registry'] == false
+
+        # On Second thought, lets try to fix stupid
+        # Not Searching Registry Can Totally Harsh Your Mellow Somewhere in the Near Future... or now.
+        # So, Lets Not Do That
+        @machine_registration_file = current_provisioner_path
+        @use_machine_registry = true
+      end
+
+      # We pass #{new_machine_registry_match} to the registration file create method so
+      # we know to mark the existing $IPADDR.json one as taken
+      #
+      # We dont mark when we match in case it blows up before
+      # actual provisioning in which case it would get orphaned
+      new_machine_registry_match = false
+      if @use_machine_registry
+        registry_match = false
+        registry_match = match_machine_options_to_registered(ssh_cluster_path, provisioner_machine_options)
+        if registry_match && !registry_match.nil?
+          provisioner_machine_options_password = provisioner_machine_options['password']
+          machine_options = registry_match
+          machine_options['password'] = provisioner_machine_options_password if
+          machine_options['password'].strip.empty?
+          new_machine_registry_match = true
+        else
+          # If we made it this far
+          # then we dont exist already and
+          # we didnt match in machine registry
+          machine_options = provisioner_machine_options
+        end
+      else
+        puts "Not Using Machine Registry"
+      end
+
+      provisioner_options['machine_options'] = machine_options
+      raise "We Have No Machine Options" unless provisioner_options['machine_options']
 
       # Set up Provisioner Output
-      # TODO - make url the chef server url path? maybe disk path if zero?
       provisioner_output = node['normal']['provisioner_output'] || {
-        'provisioner_url' =>   "ssh:#{@target_host}",
+        'provisioner_url' =>   "ssh:#{@machine_registration_file}",
         'name' => node['name']
       }
 
@@ -99,19 +181,26 @@ module ChefMetalSsh
       Chef::Log.debug("======================================>")
 
       node['normal']['provisioner_output'] = provisioner_output
-
-      # Create machine object for callers to use
+      # node['normal']['provisioner_options']['machine_options'] = machine_options
+      create_registration_file(action_handler, node, machine_options, new_machine_registry_match)
       machine_for(node)
     end
 
     # Connect to machine without acquiring it
     def connect_to_machine(node)
-      @target_host = get_target_connection_method(node)
 
-      Chef::Log.debug("======================================>")
-      Chef::Log.debug("connect_to_machine - target_host: #{@target_host}")
-      Chef::Log.debug("======================================>")
+      # Get Password If Needs To Be Got
+      provisioner_url = node['normal']['provisioner_output']['provisioner_url']
+      provisioner_path = provisioner_url.split(':', 2)[1].sub(/^\/\//, "")
+      existing_machine_options = JSON.parse(File.read(provisioner_path)) # rescue nil
+      node_machine_options = node['normal']['provisioner_options']['machine_options']
+      unless node_machine_options['password']
+        Chef::Log.debug "Password Not in Provisioner Machine Options"
+        node_machine_options['password'] = existing_machine_options['password'] ?
+          existing_machine_options['password'] : nil
+      end
 
+      # Get Some
       machine_for(node)
     end
 
@@ -120,13 +209,18 @@ module ChefMetalSsh
     end
 
     def stop_machine(action_handler, node)
+      #
       # What to do What to do.
+      #
       # On one level there's really only one thing to do here,
       # shellout and halt, or shutdown -h now,
       # maybe provide abitily to pass some shutdown options
-      # But be vewwy vewwy careful, you better have console,
+      #
+      # But be vewwy vewwy careful:
+      #
+      # you better have console...
       # or be close to your datacenter
-      true
+      #
     end
 
     def restart_machine(action_handler, node)
@@ -137,22 +231,15 @@ module ChefMetalSsh
       # Use `kexec` here to skip POST and BIOS and all that noise.
     end
 
-    # Not meant to be part of public interface
-    def transport_for(node)
-      create_ssh_transport(node)
-    end
-
     protected
 
-    def get_target_connection_method(node)
+    def get_target_connection_method(machine_options)
 
-      provisioner_options = node['normal']['provisioner_options']
+      target_ip   = machine_options['ip_address'] || false
+      target_fqdn = machine_options['fqdn']       || false
 
-      target_ip   = ''
-      target_ip   = provisioner_options['target_ip'] || nil
-
-      target_fqdn = ''
-      target_fqdn = provisioner_options['target_fqdn'] || nil
+      raise "no @target_host, target_ip or target_fqdn given" unless
+      ( @target_host || target_ip || target_fqdn )
 
       remote_host = ''
       if @target_host
@@ -196,6 +283,10 @@ module ChefMetalSsh
       ChefMetal::Machine::UnixMachine.new(node, transport_for(node), convergence_strategy_for(node))
     end
 
+    def transport_for(node)
+      create_ssh_transport(node)
+    end
+
     def convergence_strategy_for(node)
       @convergence_strategy ||= begin
         ChefMetal::ConvergenceStrategy::InstallCached.new
@@ -204,16 +295,24 @@ module ChefMetalSsh
 
     def symbolize_keys(hash)
       hash.inject({}){|result, (key, value)|
-        new_key = case key
-        when String then key.to_sym
-        else key
+
+        new_key   = case key
+        when String
+          key.to_sym
+        else
+          key
         end
+
         new_value = case value
-        when Hash then symbolize_keys(value)
-        else value
+        when Hash
+          symbolize_keys(value)
+        else
+          value
         end
+
         result[new_key] = new_value
         result
+
       }
     end
 
@@ -221,16 +320,12 @@ module ChefMetalSsh
     def create_ssh_transport(node)
 
       provisioner_options     = node['normal']['provisioner_options']
-      provisioner_ssh_options = provisioner_options['ssh_options']
-
-      Chef::Log.debug("======================================>")
-      Chef::Log.debug("create_ssh_transport - target_host: #{@target_host}")
-      Chef::Log.debug("======================================>")
+      provisioner_ssh_options = provisioner_options['ssh_options'].dup
+      machine_options         = provisioner_options['machine_options'].dup
 
       ##
       # Ssh Username
-      username = ''
-      username = provisioner_options['ssh_user'] || 'vagrant'
+      username = provisioner_ssh_options['user'] || 'root'
 
       Chef::Log.debug("======================================>")
       Chef::Log.debug("create_ssh_transport - username: #{username}")
@@ -238,38 +333,51 @@ module ChefMetalSsh
 
       ##
       # Ssh Password
-      ssh_pass = false
-      ssh_pass = provisioner_ssh_options['password'] if provisioner_ssh_options['password']
-      # ssh_pass = ssh_options[:password] if ssh_options[:password]
+      ssh_pass = machine_options['password'] ? machine_options['password'] : false
+      if ssh_pass
+        ssh_pass_hash = Hash.new
+        ssh_pass_hash = { 'password' => ssh_pass }
+      else
+        Chef::Log.info("NO PASSWORD")
+      end
 
       ##
       # Ssh Key
       ssh_keys = []
-      if provisioner_ssh_options['keys'] 
-        if provisioner_ssh_options['keys'].kind_of?(Array)
-          provisioner_ssh_options['keys'].each do |key|
+      if machine_options['keys']
+        if machine_options['keys'].kind_of?(Array)
+          machine_options['keys'].each do |key|
             ssh_keys << key
           end
-        elsif provisioner_ssh_options['keys'].kind_of?(String)
-          ssh_keys << provisioner_ssh_options['keys']
+        elsif machine_options['keys'].kind_of?(String)
+          ssh_keys << machine_options['keys']
         else
           ssh_keys = false
         end
       end
 
-      Chef::Log.debug("======================================>")
-      if ssh_pass
-        Chef::Log.debug("create_ssh_transport - ssh_pass: #{ssh_pass}")
-      elsif ssh_keys
-        Chef::Log.debug("create_ssh_transport - ssh_key: #{ssh_keys.inpsect}")
-      else
-        Chef::Log.debug("create_ssh_transport - no ssh_pass or ssh_key given")
+      if ssh_keys
+        ssh_key_hash = Hash.new
+        ssh_key_hash = { 'keys' => ssh_keys }
       end
-      Chef::Log.debug("======================================>")
+
+      Chef::Log.info("======================================>")
+      if ssh_pass
+        Chef::Log.info("create_ssh_transport - ssh_pass: #{ssh_pass_hash.inspect}")
+      elsif ssh_keys
+        Chef::Log.info("create_ssh_transport - ssh_key: #{ssh_keys.inpsect}")
+      else
+        Chef::Log.info("create_ssh_transport - no ssh_pass or ssh_key given")
+      end
+      Chef::Log.info("======================================>")
 
       raise "no ssh_pass or ssh_key given" unless ( ssh_pass || ssh_keys )
+
+      provisioner_ssh_options = provisioner_ssh_options.merge!(ssh_pass_hash)
+      provisioner_ssh_options = provisioner_ssh_options.merge!(ssh_key_hash)
+
       ##
-      # Ssh Main Options
+      # Valid Ssh Options
       valid_ssh_options = [
         :auth_methods, :bind_address, :compression, :compression_level, :config,
         :encryption, :forward_agent, :hmac, :host_key,
@@ -282,28 +390,18 @@ module ChefMetalSsh
       ]
 
       ##
-      # Ssh Main Options
+      # Ssh Options
       ssh_options = symbolize_keys(provisioner_ssh_options)
 
       # Validate Ssh Options
       ssh_options.each { |k,v| raise 'Invalid Shh Option' unless valid_ssh_options.include?(k) }
 
-      ##
-      # Ssh Main Options
-      # ssh_options = symbolize_keys(provisioner_ssh_options)
-      # ssh_options = {
-      #   # TODO create a user known hosts file
-      #   #          :user_known_hosts_file => provisioner_options['ssh_connect_options']['UserKnownHostsFile'],
-      #   #          :paranoid => true,
-      #   # :auth_methods => [ 'publickey' ],
-      #   :keys_only => false,
-      #   :host_key => ssh_key,
-      #   :password => ssh_pass
-      # }
+      Chef::Log.debug "======================================>"
+      Chef::Log.debug "create_ssh_transport - ssh_options: #{ssh_options.inspect}"
+      Chef::Log.debug "======================================>"
 
-      Chef::Log.debug("======================================>")
-      Chef::Log.debug("create_ssh_transport - ssh_options: #{ssh_options.inspect}")
-      Chef::Log.debug("======================================>")
+      # Now That We Validated Options, Lets Get Our Target
+      @target_host = get_target_connection_method(machine_options)
 
       # Make Sure We Can Connect
       begin
@@ -322,9 +420,11 @@ module ChefMetalSsh
       ##
       # Ssh Additional Options
       options = {}
+
       #Enable pty by default
       options[:ssh_pty_enable] = true
 
+      # If we not root use sudo
       if username != 'root'
         options[:prefix] = 'sudo '
       end
@@ -334,6 +434,14 @@ module ChefMetalSsh
       Chef::Log.debug("======================================>")
 
       ChefMetal::Transport::SSH.new(@target_host, username, ssh_options, options)
+
+      # We Duped It So Now We Can Zero the Node Attr. So Not Saved On Server
+      # provisioner_options['machine_options']['password'] =
+      #   nil if provisioner_options['machine_options']['password']
+
+      # provisioner_options['ssh_options']['password'] =
+      #   nil if provisioner_options['ssh_options']['password']
+
     end
 
   end

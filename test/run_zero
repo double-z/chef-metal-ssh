@@ -1,12 +1,15 @@
 #!/bin/bash
 
 CHEF_CLIENT=`which chef-client`
-
+APT_INSTALLED=`test -f /var/lib/apt/periodic/update-success-stamp`
 case "$1" in
 
 install_local)  echo "Install Gems"
-    sudo apt-get update
-    sudo apt-get install curl vim-nox -y
+    if [ -z $APT_INSTALLED ]
+    then
+      sudo apt-get update
+      sudo apt-get install curl vim-nox -y
+    fi
     if [ -z $CHEF_CLIENT ]
     then
       curl -L https://www.opscode.com/chef/install.sh | sudo bash
@@ -25,9 +28,13 @@ install_rubygems)  echo "Install Gems"
 both)  echo  "Both Machines"
     sudo chef-client -z -o ssh_test::both
     ;;
-clean)  echo  "Deleting Nodes and Clients"
+register)  echo  "Running Registration"
+    sudo chef-client -z -o ssh_test::register_target
+    ;;
+clean)  echo  "Deleting Nodes and Clients and Ssh Cluster"
     rm -rf clients/*
     rm -rf nodes/*
+    rm -rf ssh_cluster/*
     ;;
 *) echo "der der der"
    ;;
