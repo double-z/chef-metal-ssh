@@ -26,3 +26,4 @@ test/clients/*.json
 test/data_bags/**/*.json
 test/version_tmp
 tmp
+test/.chef/local-mode-cache/
