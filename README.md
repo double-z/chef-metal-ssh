@@ -20,19 +20,69 @@ Or install it yourself as:
 
 ## Usage
 
+* valid machine options: one of the two is required, ip address is boss if both given
+
+        :ip_address,
+        :fqdn - this can be a shortname too as long as it resolves
+
+
+* valid ssh options
+
+        :auth_methods, 
+        :bind_address, 
+        :compression, 
+        :compression_level, 
+        :config,
+        :encryption, 
+        :forward_agent, 
+        :hmac, 
+        :host_key,
+        :keepalive, 
+        :keepalive_interval, 
+        :kex, 
+        :keys, 
+        :key_data,
+        :languages, 
+        :logger, 
+        :paranoid, 
+        :password, 
+        :port, 
+        :proxy,
+        :rekey_blocks_limit,
+        :rekey_limit, 
+        :rekey_packet_limit, 
+        :timeout, 
+        :verbose,
+        :global_known_hosts_file, 
+        :user_known_hosts_file, 
+        :host_key_alias,
+        :host_name, 
+        :user, 
+        :properties, 
+        :passphrase, 
+        :keys_only, 
+        :max_pkt_size,
+        :max_win_size, :send_env, 
+        :use_agent
+
+* machine resource example:
+
+		require 'chef_metal_ssh'
+		
+		with_ssh_cluster("~/metal_ssh")
+
 		machine "one" do
-		  action :create
-		  converge true
-		  provisioner ChefMetalSsh::SshProvisioner.new
-		  provisioner_options 'target_ip' => '192.168.33.21',
-		                      'ssh_user' => 'vagrant',
-		                      'ssh_options' => {
-		                        'password' => 'vagrant'
-		                      }
+		  action [:create, :converge]
+		  machine_options 'ip_address' => '192.168.33.21',
+		                  'ssh_options' => {
+		                    'user' => 'vagrant',
+		                    'password' => 'vagrant'
+		                  }
 		  recipe 'ssh_test::remote1'
 		  notifies :create, 'machine[two]'
 		  notifies :run, 'execute[run_touch1]'
 		end
+
 
 To test it out, clone the repo:
 
