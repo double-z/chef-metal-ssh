@@ -1,9 +1,9 @@
-require 'chef_metal'
+# require 'chef_metal'
 require 'chef_metal_ssh'
 
 # with_driver 'ssh'
 ssh_cluster_path = "/vagrant/test/ssh_cluster"
-ssh_cluster ssh_cluster_path
+# ssh_cluster ssh_cluster_path
 
 with_ssh_cluster(ssh_cluster_path)
 
@@ -23,10 +23,10 @@ machine "one" do
   # action :converge
   # converge true
   # provisioner ChefMetalSsh::SshProvisioner.new
-  machine_options :ip_address => '192.168.33.21',
-                  :ssh_options => {
-                    :user => 'vagrant',
-                    :password => 'vagrant'
+  machine_options 'ip_address' => '192.168.33.21',
+                  'ssh_options' => {
+                    'user' => 'vagrant',
+                    'password' => 'vagrant'
                   }
   recipe 'ssh_test::remote1'
 end

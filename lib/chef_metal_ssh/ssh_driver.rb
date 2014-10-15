@@ -104,6 +104,13 @@ module ChefMetalSsh
 
     end
 
+    def ready_machine(action_handler, machine_spec, machine_options)
+      machine_for(machine_spec, machine_options)
+    end
+
+    def connect_to_machine(machine_spec, machine_options)
+      machine_for(machine_spec, machine_options)
+    end
     # # Connect to machine without acquiring it
     # def connect_to_machine(node)
 
@@ -152,14 +159,7 @@ module ChefMetalSsh
     def driver_url
       "ssh:#{cluster_path}"
     end
-    def ready_machine(action_handler, machine_spec, machine_options)
-      # Again, nothing to do here - the machine is assumed to be up
-      machine_for(machine_spec, machine_options)
-    end
 
-    def connect_to_machine(machine_spec, machine_options)
-      machine_for(machine_spec, machine_options)
-    end
 
     protected
 
@@ -170,20 +170,9 @@ module ChefMetalSsh
       end
     end
 
-    def get_target_connection_method(machine_options)
+    def get_target_connection_method(given_machine_options)
 
-      # return @target_host if @target_host
-
-      puts "machine_options"
-      puts "machine_options"
-      puts "machine_options"
-      puts "machine_options"
-      puts machine_options.inspect
-      puts "machine_options"
-      puts "machine_options"
-      puts "machine_options"
-      puts "machine_options"
-      puts "machine_options"
+      machine_options = symbolize_keys(given_machine_options)
 
       target_ip   = machine_options[:ip_address] || false
       target_fqdn = machine_options[:fqdn]       || false
@@ -231,7 +220,9 @@ module ChefMetalSsh
 
     def machine_for(machine_spec, machine_options)
       # ChefMetal::Machine::UnixMachine.new(node, transport_for(node), convergence_strategy_for(node))
-      ChefMetal::Machine::UnixMachine.new(machine_spec, create_ssh_transport(machine_options), convergence_strategy(machine_spec, machine_options))
+      ChefMetal::Machine::UnixMachine.new(machine_spec,
+                                          create_ssh_transport(machine_options),
+                                          convergence_strategy_for(machine_spec, machine_options))
     end
 
     def transport_for(machine_options)
@@ -240,7 +231,8 @@ module ChefMetalSsh
 
     def convergence_strategy_for(machine_spec, machine_options)
       @unix_convergence_strategy ||= begin
-        ChefMetal::ConvergenceStrategy::InstallCached.new(machine_options[:convergence_options], config)
+        ChefMetal::ConvergenceStrategy::InstallCached.new(machine_options[:convergence_options],
+                                                          config)
       end
     end
 
@@ -381,7 +373,7 @@ module ChefMetalSsh
       Chef::Log.debug("create_ssh_transport - options: #{options.inspect}")
       Chef::Log.debug("======================================>")
 
-      ChefMetal::Transport::SSH.new(@target_host, username, ssh_options, options)
+      ChefMetal::Transport::SSH.new(@target_host, username, ssh_options, options, config)
 
       # We Duped It So Now We Can Zero the Node Attr. So Not Saved On Server
       # provisioner_options['machine_options']['password'] =
