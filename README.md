@@ -72,7 +72,7 @@ Or install it yourself as:
 		with_ssh_cluster("~/metal_ssh")
 
 		machine "one" do
-		  action [:create, :converge]
+		  action [:ready, :converge]
 		  machine_options 'ip_address' => '192.168.33.21',
 		                  'ssh_options' => {
 		                    'user' => 'vagrant',
