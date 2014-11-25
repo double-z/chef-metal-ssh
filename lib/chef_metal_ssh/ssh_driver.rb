@@ -305,7 +305,7 @@ module ChefMetalSsh
       if ssh_pass
         Chef::Log.info("create_ssh_transport - ssh_pass: #{ssh_pass_hash.inspect}")
       elsif ssh_keys
-        Chef::Log.info("create_ssh_transport - ssh_key: #{ssh_keys.inpsect}")
+        Chef::Log.info("create_ssh_transport - ssh_key: #{ssh_keys.inspect}")
       else
         Chef::Log.info("create_ssh_transport - no ssh_pass or ssh_key given")
       end
