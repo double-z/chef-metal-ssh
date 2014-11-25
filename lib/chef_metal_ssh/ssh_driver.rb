@@ -313,8 +313,8 @@ module ChefMetalSsh
 
       raise "no ssh_pass or ssh_key given" unless ( ssh_pass || ssh_keys )
 
-      machine_ssh_options = machine_ssh_options.merge!(ssh_pass_hash)
-      machine_ssh_options = machine_ssh_options.merge!(ssh_key_hash)
+      machine_ssh_options = machine_ssh_options.merge!(ssh_pass_hash) if ssh_pass_hash
+      machine_ssh_options = machine_ssh_options.merge!(ssh_key_hash) if ssh_key_hash
 
       ##
       # Valid Ssh Options
