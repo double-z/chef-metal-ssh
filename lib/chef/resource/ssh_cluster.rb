@@ -14,8 +14,9 @@ class Chef::Resource::SshCluster < Chef::Resource::LWRPBase
     run_context.chef_metal.with_driver "ssh:#{path}"
   end
 
-  # We are not interested in Chef's cloning behavior here.
-  def load_prior_resource
+  # We are not interested in Chef's cloning behavior here. To make it match chef version after 
+  #CHEF-5052, https://tickets.opscode.com/browse/CHEF-5052
+  def load_prior_resource(type=nil,name=nil)
     Chef::Log.debug("Overloading #{resource_name}.load_prior_resource with NOOP")
   end
 end
