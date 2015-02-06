@@ -1,20 +1,21 @@
 require 'json'
 require 'resolv'
-require 'chef_metal/driver'
-require 'chef_metal/version'
-require 'chef_metal/machine/basic_machine'
-require 'chef_metal/machine/unix_machine'
-require 'chef_metal/convergence_strategy/install_cached'
-require 'chef_metal/transport/ssh'
-require 'chef_metal_ssh/machine_registry'
-require 'chef_metal_ssh/version'
+require 'chef/provisioning/driver'
+require 'chef/provisioning/version'
+require 'chef/provisioning/machine/basic_machine'
+require 'chef/provisioning/machine/unix_machine'
+require 'chef/provisioning/convergence_strategy/install_cached'
+require 'chef/provisioning/transport/ssh'
+require 'chef_provisioning_ssh/machine_registry'
+require 'chef_provisioning_ssh/version'
 require 'chef/resource/ssh_cluster'
 require 'chef/provider/ssh_cluster'
-module ChefMetalSsh
+class Chef
+module Provisioning
   # Provisions machines with ssh.
-  class SshDriver < ChefMetal::Driver
+  class SshDriver < Chef::Provisioning::Driver
 
-    include ChefMetalSsh::MachineRegistry
+    include ChefProvisioningSsh::MachineRegistry
 
     # ## Parameters
     # cluster_path - path to the directory containing the vagrant files, which
@@ -39,7 +40,7 @@ module ChefMetalSsh
 
     def self.canonicalize_url(driver_url, config)
       scheme, cluster_path = driver_url.split(':', 2)
-      cluster_path = File.expand_path(cluster_path || File.join(Chef::Config.config_dir, 'metal_ssh'))
+      cluster_path = File.expand_path(cluster_path || File.join(Chef::Config.config_dir, 'ssh'))
       "ssh:#{cluster_path}"
     end
     # Acquire a machine, generally by provisioning it.  Returns a Machine
@@ -91,7 +92,7 @@ module ChefMetalSsh
       # TODO - make url the chef server url path? maybe disk path if zero?
       machine_spec.location = {
         'driver_url' => driver_url,
-        'driver_version' => ChefMetalSsh::VERSION,
+        'driver_version' => ChefProvisioningSsh::VERSION,
         'target_name' => target_name,
         'target_file_path' => target_file_path,
         'allocated_at' => Time.now.utc.to_s
@@ -165,7 +166,7 @@ module ChefMetalSsh
 
     def ensure_ssh_cluster(action_handler)
       _cluster_path = cluster_path
-      ChefMetal.inline_resource(action_handler) do
+      Chef::Provisioning.inline_resource(action_handler) do
         ssh_cluster _cluster_path
       end
     end
@@ -219,8 +220,7 @@ module ChefMetalSsh
     end
 
     def machine_for(machine_spec, machine_options)
-      # ChefMetal::Machine::UnixMachine.new(node, transport_for(node), convergence_strategy_for(node))
-      ChefMetal::Machine::UnixMachine.new(machine_spec,
+      Chef::Provisioning::Machine::UnixMachine.new(machine_spec,
                                           create_ssh_transport(machine_options),
                                           convergence_strategy_for(machine_spec, machine_options))
     end
@@ -231,7 +231,7 @@ module ChefMetalSsh
 
     def convergence_strategy_for(machine_spec, machine_options)
       @unix_convergence_strategy ||= begin
-        ChefMetal::ConvergenceStrategy::InstallCached.new(machine_options[:convergence_options],
+        Chef::Provisioning::ConvergenceStrategy::InstallCached.new(machine_options[:convergence_options],
                                                           config)
       end
     end
@@ -373,7 +373,7 @@ module ChefMetalSsh
       Chef::Log.debug("create_ssh_transport - options: #{options.inspect}")
       Chef::Log.debug("======================================>")
 
-      ChefMetal::Transport::SSH.new(@target_host, username, ssh_options, options, config)
+      Chef::Provisioning::Transport::SSH.new(@target_host, username, ssh_options, options, config)
 
       # We Duped It So Now We Can Zero the Node Attr. So Not Saved On Server
       # provisioner_options['machine_options']['password'] =
@@ -383,6 +383,6 @@ module ChefMetalSsh
       #   nil if provisioner_options['ssh_options']['password']
 
     end
-
   end
+end
 end

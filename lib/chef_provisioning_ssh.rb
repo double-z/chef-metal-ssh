@@ -1,10 +1,9 @@
-require 'chef_metal'
+require 'chef/provisioning'
 require 'chef/resource/ssh_cluster'
 require 'chef/provider/ssh_cluster'
 require 'chef/resource/ssh_target'
 require 'chef/provider/ssh_target'
-# require 'chef_metal_ssh/machine_registry'
-require 'chef_metal_ssh/ssh_driver'
+require 'chef/provisioning/ssh_driver'
 
 class Chef
 	module DSL

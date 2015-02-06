@@ -1,5 +1,5 @@
 # require 'chef_metal'
-require 'chef_metal_ssh'
+require 'chef_provisioning_ssh'
 
 # with_driver 'ssh'
 ssh_cluster_path = "/vagrant/test/ssh_cluster"

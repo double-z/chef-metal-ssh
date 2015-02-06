@@ -1,6 +1,4 @@
-# require 'chef_metal_ssh'
-
-module ChefMetalSsh
+module ChefProvisioningSsh
   module MachineRegistry
 
     def validate_machine_options(node)
@@ -47,7 +45,7 @@ module ChefMetalSsh
     end
 
     def delete_provider_registration_file(action_handler, registry_file)
-      ChefMetal.inline_resource(action_handler) do
+      Chef::Provisioning.inline_resource(action_handler) do
         file registry_file do
           action :delete
         end
@@ -70,7 +68,7 @@ module ChefMetalSsh
 
       machine_options_json = JSON.pretty_generate(machine_options)
 
-      ChefMetal.inline_resource(action_handler) do
+      Chef::Provisioning.inline_resource(action_handler) do
         file machine_registration_file do
           content machine_options_json
         end
