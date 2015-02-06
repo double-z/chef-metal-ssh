@@ -11,7 +11,7 @@
 #  version '0.6'
 #end
 
-chef_gem 'chef-metal-ssh' do
-  source '/vagrant/pkg/chef-metal-ssh-0.1.2.gem'
+chef_gem 'chef-provisioning-ssh' do
+  source '/vagrant/pkg/chef-provisioning-ssh-0.1.2.gem'
   version '0.1.2'
 end
